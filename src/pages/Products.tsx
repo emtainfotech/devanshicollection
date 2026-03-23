@@ -3,11 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '@/components/layout/Layout';
 import ProductCard from '@/components/product/ProductCard';
-import { SAMPLE_PRODUCTS, SAMPLE_CATEGORIES } from '@/lib/constants';
-import { SlidersHorizontal, X, ChevronDown } from 'lucide-react';
+import { useProducts, useCategories } from '@/hooks/useData';
+import { SlidersHorizontal } from 'lucide-react';
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL'];
-const COLORS = ['Black', 'White', 'Burgundy', 'Cream', 'Dusty Rose', 'Camel', 'Olive', 'Sand'];
 const SORT_OPTIONS = [
   { label: 'Newest', value: 'newest' },
   { label: 'Price: Low to High', value: 'price-asc' },
@@ -20,183 +19,90 @@ const Products = () => {
   const categorySlug = searchParams.get('category');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 500]);
   const [sortBy, setSortBy] = useState('newest');
 
-  const category = categorySlug ? SAMPLE_CATEGORIES.find((c) => c.slug === categorySlug) : null;
+  const { data: categories } = useCategories();
+  const { data: products, isLoading } = useProducts({ categorySlug });
+  const category = categories?.find((c) => c.slug === categorySlug);
 
   const filtered = useMemo(() => {
-    let products = [...SAMPLE_PRODUCTS];
-
-    if (categorySlug) {
-      const cat = SAMPLE_CATEGORIES.find((c) => c.slug === categorySlug);
-      if (cat) products = products.filter((p) => p.category_id === cat.id);
-    }
-
+    let items = [...(products || [])];
     if (selectedSizes.length > 0) {
-      products = products.filter((p) => p.sizes.some((s) => selectedSizes.includes(s)));
+      items = items.filter((p) => p.sizes?.some((s: string) => selectedSizes.includes(s)));
     }
-
-    if (selectedColors.length > 0) {
-      products = products.filter((p) => p.colors.some((c) => selectedColors.includes(c)));
-    }
-
-    products = products.filter((p) => {
-      const price = p.price * (1 - p.discount / 100);
-      return price >= priceRange[0] && price <= priceRange[1];
-    });
-
     switch (sortBy) {
-      case 'price-asc':
-        products.sort((a, b) => a.price * (1 - a.discount / 100) - b.price * (1 - b.discount / 100));
-        break;
-      case 'price-desc':
-        products.sort((a, b) => b.price * (1 - b.discount / 100) - a.price * (1 - a.discount / 100));
-        break;
-      case 'rating':
-        products.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
+      case 'price-asc': items.sort((a, b) => Number(a.price) * (1 - (a.discount || 0) / 100) - Number(b.price) * (1 - (b.discount || 0) / 100)); break;
+      case 'price-desc': items.sort((a, b) => Number(b.price) * (1 - (b.discount || 0) / 100) - Number(a.price) * (1 - (a.discount || 0) / 100)); break;
+      case 'rating': items.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0)); break;
     }
+    return items;
+  }, [products, selectedSizes, sortBy]);
 
-    return products;
-  }, [categorySlug, selectedSizes, selectedColors, priceRange, sortBy]);
-
-  const toggleSize = (size: string) =>
-    setSelectedSizes((prev) => (prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]));
-
-  const toggleColor = (color: string) =>
-    setSelectedColors((prev) => (prev.includes(color) ? prev.filter((c) => c !== color) : [...prev, color]));
+  const toggleSize = (size: string) => setSelectedSizes((prev) => prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]);
 
   return (
     <Layout>
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="mb-8"
-        >
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
           <h1 className="font-display text-4xl md:text-5xl font-semibold" style={{ lineHeight: '1.1' }}>
             {category ? category.name : 'All Products'}
           </h1>
-          <p className="font-body text-muted-foreground mt-2">
-            {filtered.length} {filtered.length === 1 ? 'product' : 'products'}
-          </p>
+          <p className="font-body text-muted-foreground mt-2">{filtered.length} products</p>
         </motion.div>
 
-        {/* Toolbar */}
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
-          <button
-            onClick={() => setFiltersOpen(!filtersOpen)}
-            className="flex items-center gap-2 text-sm font-body font-medium active:scale-95 transition-transform"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            Filters
-            {(selectedSizes.length + selectedColors.length > 0) && (
-              <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">
-                {selectedSizes.length + selectedColors.length}
-              </span>
-            )}
+          <button onClick={() => setFiltersOpen(!filtersOpen)} className="flex items-center gap-2 text-sm font-body font-medium active:scale-95 transition-transform">
+            <SlidersHorizontal className="h-4 w-4" /> Filters
+            {selectedSizes.length > 0 && <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">{selectedSizes.length}</span>}
           </button>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="text-sm font-body bg-transparent border-0 text-foreground cursor-pointer focus:outline-none"
-          >
-            {SORT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="text-sm font-body bg-transparent border-0 text-foreground cursor-pointer focus:outline-none">
+            {SORT_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
         </div>
 
         <div className="flex gap-8">
-          {/* Filters Sidebar */}
           {filtersOpen && (
-            <motion.aside
-              initial={{ opacity: 0, x: -16 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
-              className="w-56 flex-shrink-0 hidden md:block"
-            >
-              {/* Categories */}
+            <motion.aside initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="w-56 flex-shrink-0 hidden md:block">
               <div className="mb-8">
                 <h3 className="font-body text-sm font-semibold mb-3">Categories</h3>
                 <div className="space-y-2">
-                  {SAMPLE_CATEGORIES.map((cat) => (
-                    <a
-                      key={cat.id}
-                      href={`/products?category=${cat.slug}`}
-                      className={`block text-sm font-body py-1 transition-colors ${
-                        cat.slug === categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
+                  <a href="/products" className={`block text-sm font-body py-1 ${!categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>All</a>
+                  {categories?.map((cat) => (
+                    <a key={cat.id} href={`/products?category=${cat.slug}`} className={`block text-sm font-body py-1 ${cat.slug === categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
                       {cat.name}
                     </a>
                   ))}
                 </div>
               </div>
-
-              {/* Sizes */}
               <div className="mb-8">
                 <h3 className="font-body text-sm font-semibold mb-3">Sizes</h3>
                 <div className="flex flex-wrap gap-2">
                   {SIZES.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => toggleSize(size)}
-                      className={`px-3 py-1.5 text-xs font-body border rounded-md transition-colors active:scale-95 ${
-                        selectedSizes.includes(size)
-                          ? 'bg-foreground text-background border-foreground'
-                          : 'border-border hover:border-foreground'
-                      }`}
-                    >
+                    <button key={size} onClick={() => toggleSize(size)} className={`px-3 py-1.5 text-xs font-body border rounded-md transition-colors active:scale-95 ${selectedSizes.includes(size) ? 'bg-foreground text-background border-foreground' : 'border-border hover:border-foreground'}`}>
                       {size}
                     </button>
                   ))}
                 </div>
               </div>
-
-              {/* Colors */}
-              <div className="mb-8">
-                <h3 className="font-body text-sm font-semibold mb-3">Colors</h3>
-                <div className="space-y-2">
-                  {COLORS.map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => toggleColor(color)}
-                      className={`block text-sm font-body py-1 transition-colors ${
-                        selectedColors.includes(color) ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <button
-                onClick={() => { setSelectedSizes([]); setSelectedColors([]); setPriceRange([0, 500]); }}
-                className="text-xs font-body text-muted-foreground underline underline-offset-4 hover:text-foreground"
-              >
-                Clear All Filters
-              </button>
+              <button onClick={() => setSelectedSizes([])} className="text-xs font-body text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear All</button>
             </motion.aside>
           )}
 
-          {/* Product Grid */}
           <div className="flex-1">
-            {filtered.length > 0 ? (
+            {isLoading ? (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                {filtered.map((product, i) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }}
-                    animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-                    transition={{ duration: 0.4, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}
-                  >
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="animate-pulse">
+                    <div className="aspect-[3/4] bg-secondary rounded-lg mb-3" />
+                    <div className="h-4 bg-secondary rounded w-3/4 mb-2" />
+                    <div className="h-3 bg-secondary rounded w-1/2" />
+                  </div>
+                ))}
+              </div>
+            ) : filtered.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+                {filtered.map((product: any, i: number) => (
+                  <motion.div key={product.id} initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.4, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}>
                     <ProductCard product={product} />
                   </motion.div>
                 ))}
