@@ -43,7 +43,7 @@ const Navbar = () => {
           </Sheet>
 
           <Link to="/" className="flex-shrink-0">
-            <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-foreground">AURELIA</h1>
+            <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-foreground">DEVANSHI COLLECTION</h1>
           </Link>
 
           <div className="hidden lg:flex items-center gap-8">
