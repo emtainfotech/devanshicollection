@@ -1,4 +1,5 @@
-export const USD_TO_INR = 83;
+// Prices are stored in INR in the database.
+export const USD_TO_INR = 1;
 export const GST_RATE = 0.18;
 export const SHIPPING_FLAT_INR = 99;
 export const SHIPPING_FREE_THRESHOLD_INR = 4999;

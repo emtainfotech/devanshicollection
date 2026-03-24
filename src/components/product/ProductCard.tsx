@@ -34,6 +34,8 @@ const ProductCard = ({ product }: ProductCardProps) => {
   const wishlisted = isInWishlist(product.id);
   const [quickOpen, setQuickOpen] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
+  const images = (product.images || []).filter((img) => !!img && (img.startsWith('http') || img.includes(',')));
+  const primaryImage = images[activeImage] || images[0] || '/placeholder.svg';
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -44,7 +46,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       name: product.name,
       price: product.price,
       discount: product.discount,
-      image: product.images[0],
+      image: images[0] || '/placeholder.svg',
       size: product.sizes[0],
       color: product.colors[0],
       quantity: 1,
@@ -64,7 +66,7 @@ const ProductCard = ({ product }: ProductCardProps) => {
       name: product.name,
       price: product.price,
       discount: product.discount,
-      image: product.images[0],
+      image: images[0] || '/placeholder.svg',
       size: product.sizes[0],
       color: product.colors[0],
       quantity: 1,
@@ -84,11 +86,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
     <Link to={`/product/${product.slug}`} className="group block rounded-xl border border-border bg-card p-2.5 md:p-3 hover:shadow-md transition-shadow">
       <div
         className="relative aspect-[3/4] overflow-hidden rounded-lg bg-secondary mb-3"
-        onMouseEnter={() => product.images[1] && setActiveImage(1)}
+        onMouseEnter={() => images[1] && setActiveImage(1)}
         onMouseLeave={() => setActiveImage(0)}
       >
         <img
-          src={product.images[activeImage] || product.images[0]}
+          src={primaryImage}
           alt={product.name}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           loading="lazy"
@@ -161,11 +163,11 @@ const ProductCard = ({ product }: ProductCardProps) => {
           <div className="grid md:grid-cols-2 gap-5">
             <div className="space-y-2">
               <div className="aspect-[3/4] rounded-md overflow-hidden bg-secondary">
-                <img src={product.images[activeImage] || product.images[0]} alt={product.name} className="w-full h-full object-cover" />
+                <img src={primaryImage} alt={product.name} className="w-full h-full object-cover" />
               </div>
-              {product.images.length > 1 && (
+              {images.length > 1 && (
                 <div className="flex gap-2">
-                  {product.images.slice(0, 4).map((img, idx) => (
+                  {images.slice(0, 4).map((img, idx) => (
                     <button key={img + idx} type="button" onClick={() => setActiveImage(idx)} className={`h-14 w-12 rounded border ${activeImage === idx ? 'border-primary' : 'border-border'} overflow-hidden`}>
                       <img src={img} alt="" className="h-full w-full object-cover" />
                     </button>

@@ -35,6 +35,15 @@ const AdminProducts = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (product: any) => {
+      const parseImages = (value?: string) => {
+        const text = String(value || '').trim();
+        if (!text) return [];
+        const byLines = text.split('\n').map((s: string) => s.trim()).filter(Boolean);
+        if (byLines.length > 1) return byLines;
+        // Keep full base64 string intact if single data URL
+        if (text.startsWith('data:image/')) return [text];
+        return text.split(',').map((s: string) => s.trim()).filter(Boolean);
+      };
       const payload = {
         name: product.name,
         slug: product.slug,
@@ -45,7 +54,7 @@ const AdminProducts = () => {
         colors: product.colors?.split(',').map((s: string) => s.trim()).filter(Boolean) || [],
         stock: parseInt(product.stock) || 0,
         category_id: product.category_id || null,
-        images: product.images?.split(',').map((s: string) => s.trim()).filter(Boolean) || [],
+        images: parseImages(product.images),
         is_featured: product.is_featured || false,
         is_trending: product.is_trending || false,
         is_active: product.is_active !== false,
@@ -96,7 +105,7 @@ const AdminProducts = () => {
       stock: String(p.stock),
       sizes: p.sizes?.join(', ') || '',
       colors: p.colors?.join(', ') || '',
-      images: p.images?.join(', ') || '',
+      images: p.images?.join('\n') || '',
     });
     setDialogOpen(true);
   };
@@ -120,10 +129,10 @@ const AdminProducts = () => {
     try {
       const values = await Promise.all(Array.from(files).map((file) => readFile(file)));
       const current = (editingProduct.images || '')
-        .split(',')
+        .split('\n')
         .map((s: string) => s.trim())
         .filter(Boolean);
-      const merged = [...current, ...values].join(', ');
+      const merged = [...current, ...values].join('\n');
       setEditingProduct({ ...editingProduct, images: merged });
       toast.success(`${values.length} image(s) added from system`);
     } catch {
@@ -221,8 +230,14 @@ const AdminProducts = () => {
                 <div><Label className="font-body text-xs">Colors (comma separated)</Label><Input value={editingProduct.colors} onChange={(e) => setEditingProduct({ ...editingProduct, colors: e.target.value })} placeholder="Black, White" /></div>
               </div>
               <div>
-                <Label className="font-body text-xs">Image URLs (comma separated)</Label>
-                <Input value={editingProduct.images} onChange={(e) => setEditingProduct({ ...editingProduct, images: e.target.value })} placeholder="https://..." />
+                <Label className="font-body text-xs">Image URLs (one per line)</Label>
+                <textarea
+                  value={editingProduct.images}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, images: e.target.value })}
+                  className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
+                  rows={4}
+                  placeholder="https://...\nhttps://..."
+                />
               </div>
               <div>
                 <Label className="font-body text-xs">Upload Images From System</Label>

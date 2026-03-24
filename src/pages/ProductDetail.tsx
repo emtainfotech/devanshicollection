@@ -52,7 +52,7 @@ const ProductDetail = () => {
   const price = Number(product.price);
   const discountedPrice = price * (1 - (product.discount || 0) / 100);
   const wishlisted = isInWishlist(product.id);
-  const images = product.images || [];
+  const images = (product.images || []).filter((img: string) => !!img && (img.startsWith('http') || img.includes(',')));
 
   const handleAddToCart = () => {
     if (!selectedSize) { toast.error('Please select a size'); return; }
@@ -121,7 +121,9 @@ const ProductDetail = () => {
               )}
             </div>
 
-            <p className="font-body text-sm text-muted-foreground mt-4 leading-relaxed">{product.description}</p>
+            {String(product.description || '').trim() && String(product.description || '').trim() !== '0' && (
+              <p className="font-body text-sm text-muted-foreground mt-4 leading-relaxed">{product.description}</p>
+            )}
 
             <div className="mt-8">
               <h3 className="font-body text-sm font-semibold mb-3">Size</h3>

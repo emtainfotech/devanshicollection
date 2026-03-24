@@ -15,7 +15,7 @@ const AdminOrders = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, profiles(first_name, last_name, phone)')
+        .select('*')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data;
@@ -50,7 +50,7 @@ const AdminOrders = () => {
               <tr key={o.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
                 <td className="p-3 font-mono text-xs">{o.id.slice(0, 8)}...</td>
                 <td className="p-3">
-                  <p>{(o as any).profiles?.first_name} {(o as any).profiles?.last_name}</p>
+                  <p>{(o as any).shipping_address?.full_name || '—'}</p>
                   {(o as any).shipping_address?.phone && <p className="text-xs text-muted-foreground">{(o as any).shipping_address?.phone}</p>}
                 </td>
                 <td className="p-3 tabular-nums">{formatINR(toINRValue(Number(o.total_amount)))}</td>
