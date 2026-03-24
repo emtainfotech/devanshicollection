@@ -67,6 +67,17 @@ const AdminCategories = () => {
     setDialogOpen(true);
   };
 
+  const handleCategoryImageFromSystem = (file?: File | null) => {
+    if (!file || !editing) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setEditing({ ...editing, image_url: result });
+      toast.success('Category image loaded from system');
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <AdminLayout title="Categories">
       <div className="flex justify-between items-center mb-6">
@@ -118,6 +129,10 @@ const AdminCategories = () => {
               <div><Label className="font-body text-xs">Slug</Label><Input value={editing.slug} onChange={(e) => setEditing({ ...editing, slug: e.target.value })} required /></div>
               <div><Label className="font-body text-xs">Description</Label><Input value={editing.description || ''} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
               <div><Label className="font-body text-xs">Image URL</Label><Input value={editing.image_url || ''} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} /></div>
+              <div>
+                <Label className="font-body text-xs">Upload Image From System</Label>
+                <Input type="file" accept="image/*" onChange={(e) => handleCategoryImageFromSystem(e.target.files?.[0] || null)} />
+              </div>
               <div><Label className="font-body text-xs">Parent Category</Label>
                 <select value={editing.parent_id || ''} onChange={(e) => setEditing({ ...editing, parent_id: e.target.value || null })} className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background">
                   <option value="">None (top level)</option>

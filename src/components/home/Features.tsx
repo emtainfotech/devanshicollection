@@ -2,7 +2,7 @@ import { motion } from 'framer-motion';
 import { Truck, RotateCcw, Shield, Headphones } from 'lucide-react';
 
 const features = [
-  { icon: Truck, title: 'Free Shipping', desc: 'On orders over $150' },
+  { icon: Truck, title: 'Free Shipping', desc: 'On orders over ₹4,999' },
   { icon: RotateCcw, title: 'Easy Returns', desc: '30-day return policy' },
   { icon: Shield, title: 'Secure Payment', desc: '100% secure checkout' },
   { icon: Headphones, title: 'Support 24/7', desc: 'Dedicated assistance' },

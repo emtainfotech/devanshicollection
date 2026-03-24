@@ -8,6 +8,7 @@ import { useCart, CartItem } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { Heart, ShoppingBag, Star, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
+import { formatINR, toINRValue } from '@/lib/pricing';
 
 const ProductDetail = () => {
   const { slug } = useParams();
@@ -111,12 +112,12 @@ const ProductDetail = () => {
             <div className="flex items-center gap-3 mt-4">
               {(product.discount || 0) > 0 ? (
                 <>
-                  <span className="font-display text-2xl font-semibold text-primary">${discountedPrice.toFixed(2)}</span>
-                  <span className="font-body text-lg text-muted-foreground line-through">${price.toFixed(2)}</span>
+                  <span className="font-display text-2xl font-semibold text-primary">{formatINR(toINRValue(discountedPrice))}</span>
+                  <span className="font-body text-lg text-muted-foreground line-through">{formatINR(toINRValue(price))}</span>
                   <span className="font-body text-xs font-semibold bg-primary/10 text-primary px-2 py-1 rounded">Save {product.discount}%</span>
                 </>
               ) : (
-                <span className="font-display text-2xl font-semibold">${price.toFixed(2)}</span>
+                <span className="font-display text-2xl font-semibold">{formatINR(toINRValue(price))}</span>
               )}
             </div>
 

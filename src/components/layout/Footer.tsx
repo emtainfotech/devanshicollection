@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Instagram, Facebook, Twitter } from 'lucide-react';
+import BrandLogo from './BrandLogo';
 
 const Footer = () => {
   return (
@@ -8,7 +9,7 @@ const Footer = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           {/* Brand */}
           <div>
-            <h2 className="font-display text-3xl font-semibold mb-4">DEVANSHI COLLECTION</h2>
+            <BrandLogo withTagline className="mb-4" />
             <p className="text-sm opacity-70 leading-relaxed font-body max-w-xs">
               Curating timeless elegance for the modern woman. Every piece tells a story of craftsmanship and style.
             </p>
@@ -60,7 +61,7 @@ const Footer = () => {
         </div>
 
         <div className="border-t border-background/10 mt-12 pt-8 text-center text-xs font-body opacity-50">
-          © {new Date().getFullYear()} Aurelia. All rights reserved.
+          © {new Date().getFullYear()} Devanshi Collection. All rights reserved.
         </div>
       </div>
     </footer>

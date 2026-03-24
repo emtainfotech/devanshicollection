@@ -51,7 +51,7 @@ const AdminLayout = ({ children, title }: AdminLayoutProps) => {
           <Link to="/" className="flex items-center gap-2 text-muted-foreground hover:text-foreground text-xs font-body mb-3">
             <ChevronLeft className="h-3 w-3" /> Back to store
           </Link>
-          <h2 className="font-display text-xl font-semibold">AURELIA</h2>
+          <h2 className="font-display text-xl font-semibold">DEVANSHI COLLECTION</h2>
           <p className="font-body text-xs text-muted-foreground mt-0.5">Admin Panel</p>
         </div>
 

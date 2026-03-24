@@ -6,6 +6,7 @@ import { useWishlist } from '@/contexts/WishlistContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCategories } from '@/hooks/useData';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
+import BrandLogo from './BrandLogo';
 
 const Navbar = () => {
   const { itemCount } = useCart();
@@ -17,7 +18,7 @@ const Navbar = () => {
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="bg-primary text-primary-foreground text-center py-1.5 text-xs font-body tracking-wider">
-        FREE SHIPPING ON ORDERS OVER $150 · USE CODE <span className="font-semibold">CHIC15</span>
+        FREE SHIPPING ON ORDERS OVER ₹4,999 · USE CODE <span className="font-semibold">CHIC15</span>
       </div>
 
       <nav className="container mx-auto px-4">
@@ -42,9 +43,7 @@ const Navbar = () => {
             </SheetContent>
           </Sheet>
 
-          <Link to="/" className="flex-shrink-0">
-            <h1 className="font-display text-2xl md:text-3xl font-semibold tracking-tight text-foreground">DEVANSHI COLLECTION</h1>
-          </Link>
+          <BrandLogo compact className="flex-shrink-0" />
 
           <div className="hidden lg:flex items-center gap-8">
             {categories?.slice(0, 5).map((cat) => (

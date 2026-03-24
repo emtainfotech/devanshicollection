@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '@/components/layout/Layout';
 import ProductCard from '@/components/product/ProductCard';
@@ -66,11 +66,11 @@ const Products = () => {
               <div className="mb-8">
                 <h3 className="font-body text-sm font-semibold mb-3">Categories</h3>
                 <div className="space-y-2">
-                  <a href="/products" className={`block text-sm font-body py-1 ${!categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>All</a>
+                  <Link to="/products" className={`block text-sm font-body py-1 ${!categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>All</Link>
                   {categories?.map((cat) => (
-                    <a key={cat.id} href={`/products?category=${cat.slug}`} className={`block text-sm font-body py-1 ${cat.slug === categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <Link key={cat.id} to={`/products?category=${cat.slug}`} className={`block text-sm font-body py-1 ${cat.slug === categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
                       {cat.name}
-                    </a>
+                    </Link>
                   ))}
                 </div>
               </div>

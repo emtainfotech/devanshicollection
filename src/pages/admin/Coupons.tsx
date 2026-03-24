@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { formatINR, toINRValue } from '@/lib/pricing';
 
 const AdminCoupons = () => {
   const queryClient = useQueryClient();
@@ -75,8 +76,8 @@ const AdminCoupons = () => {
             {coupons?.map((c) => (
               <tr key={c.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
                 <td className="p-3 font-mono font-semibold">{c.code}</td>
-                <td className="p-3 tabular-nums">{c.discount_type === 'percentage' ? `${c.discount_value}%` : `$${c.discount_value}`}</td>
-                <td className="p-3 tabular-nums">${Number(c.min_order_amount).toFixed(2)}</td>
+                <td className="p-3 tabular-nums">{c.discount_type === 'percentage' ? `${c.discount_value}%` : formatINR(toINRValue(Number(c.discount_value)))}</td>
+                <td className="p-3 tabular-nums">{formatINR(toINRValue(Number(c.min_order_amount)))}</td>
                 <td className="p-3 tabular-nums">{c.used_count}{c.max_uses ? `/${c.max_uses}` : ''}</td>
                 <td className="p-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${c.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>

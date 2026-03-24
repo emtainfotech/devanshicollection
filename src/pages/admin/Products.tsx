@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { formatINR, toINRValue } from '@/lib/pricing';
 
 const AdminProducts = () => {
   const queryClient = useQueryClient();
@@ -105,6 +106,31 @@ const AdminProducts = () => {
     saveMutation.mutate(editingProduct);
   };
 
+  const handleProductImagesFromSystem = async (files: FileList | null) => {
+    if (!files || !editingProduct) return;
+
+    const readFile = (file: File) =>
+      new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+        reader.onerror = () => reject(new Error('Failed to read image'));
+        reader.readAsDataURL(file);
+      });
+
+    try {
+      const values = await Promise.all(Array.from(files).map((file) => readFile(file)));
+      const current = (editingProduct.images || '')
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const merged = [...current, ...values].join(', ');
+      setEditingProduct({ ...editingProduct, images: merged });
+      toast.success(`${values.length} image(s) added from system`);
+    } catch {
+      toast.error('Unable to read selected image files');
+    }
+  };
+
   return (
     <AdminLayout title="Products">
       <div className="flex justify-between items-center mb-6">
@@ -139,7 +165,7 @@ const AdminProducts = () => {
                   </div>
                 </td>
                 <td className="p-3 text-muted-foreground">{(p as any).categories?.name || '—'}</td>
-                <td className="p-3 tabular-nums">${Number(p.price).toFixed(2)}{p.discount > 0 && <span className="text-primary ml-1">-{p.discount}%</span>}</td>
+                <td className="p-3 tabular-nums">{formatINR(toINRValue(Number(p.price)))}{p.discount > 0 && <span className="text-primary ml-1">-{p.discount}%</span>}</td>
                 <td className="p-3 tabular-nums">{p.stock}</td>
                 <td className="p-3">
                   <span className={`text-xs px-2 py-0.5 rounded-full ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -197,6 +223,10 @@ const AdminProducts = () => {
               <div>
                 <Label className="font-body text-xs">Image URLs (comma separated)</Label>
                 <Input value={editingProduct.images} onChange={(e) => setEditingProduct({ ...editingProduct, images: e.target.value })} placeholder="https://..." />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Upload Images From System</Label>
+                <Input type="file" accept="image/*" multiple onChange={(e) => handleProductImagesFromSystem(e.target.files)} />
               </div>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-sm font-body">

@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { Package, ShoppingCart, Users, DollarSign } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { formatINR, toINRValue } from '@/lib/pricing';
 
 const AdminDashboard = () => {
   const { data: stats } = useQuery({
@@ -29,7 +31,7 @@ const AdminDashboard = () => {
     { label: 'Products', value: stats?.products || 0, icon: Package, color: 'text-primary' },
     { label: 'Orders', value: stats?.orders || 0, icon: ShoppingCart, color: 'text-gold' },
     { label: 'Categories', value: stats?.categories || 0, icon: Users, color: 'text-rose' },
-    { label: 'Revenue', value: `$${(stats?.revenue || 0).toFixed(2)}`, icon: DollarSign, color: 'text-green-600' },
+    { label: 'Revenue', value: formatINR(toINRValue(stats?.revenue || 0)), icon: DollarSign, color: 'text-green-600' },
   ];
 
   return (
@@ -55,13 +57,13 @@ const AdminDashboard = () => {
             { label: 'Update Banners', href: '/admin/banners' },
             { label: 'View Orders', href: '/admin/orders' },
           ].map((action) => (
-            <a
+            <Link
               key={action.label}
-              href={action.href}
+              to={action.href}
               className="bg-secondary text-center py-3 px-4 rounded-md text-sm font-body font-medium hover:bg-accent transition-colors"
             >
               {action.label}
-            </a>
+            </Link>
           ))}
         </div>
       </div>

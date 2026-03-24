@@ -12,7 +12,7 @@ const Index = () => {
       <FeaturedCategories />
       <ProductGrid title="Trending Now" subtitle="Styles our community can't stop wearing" filter="trending" limit={4} />
       <PromoBanner />
-      <ProductGrid title="New Arrivals" subtitle="Fresh picks, just landed" filter="featured" limit={4} />
+      <ProductGrid title="New Arrivals" subtitle="Fresh picks, just landed" filter="new" limit={4} />
       <Features />
     </Layout>
   );

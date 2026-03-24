@@ -1,0 +1,7 @@
+<svg width="420" height="120" viewBox="0 0 420 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="120" rx="20" fill="#8D3C4F"/>
+  <path d="M33 87V33H56.5C73.2 33 83 42.1 83 59.6C83 77.1 73.2 87 56.5 87H33ZM45.8 76.5H56.1C65.1 76.5 70.1 70.8 70.1 59.6C70.1 48.4 65.1 43.5 56.1 43.5H45.8V76.5Z" fill="#F8F3F0"/>
+  <path d="M98 87V33H110.2V87H98Z" fill="#F8F3F0"/>
+  <text x="138" y="54" fill="#1F1714" font-family="Georgia, 'Times New Roman', serif" font-size="30" font-weight="600" letter-spacing="1.2">DEVANSHI</text>
+  <text x="138" y="87" fill="#8D3C4F" font-family="Georgia, 'Times New Roman', serif" font-size="27" font-weight="500" letter-spacing="2.4">COLLECTION</text>
+</svg>

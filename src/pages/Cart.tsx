@@ -5,13 +5,17 @@ import { useCart } from '@/contexts/CartContext';
 import { Minus, Plus, X, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
+import { formatINR, getShippingINR, GST_RATE, toINRValue } from '@/lib/pricing';
 
 const Cart = () => {
   const { state, removeItem, updateQuantity, applyCoupon, removeCoupon, itemCount, subtotal, total } = useCart();
   const [couponInput, setCouponInput] = useState('');
 
-  const shipping = subtotal > 150 ? 0 : 9.99;
-  const tax = total * 0.08;
+  const subtotalINR = toINRValue(subtotal);
+  const discountedINR = toINRValue(total);
+  const discountAmountINR = subtotalINR - discountedINR;
+  const shippingINR = getShippingINR(subtotalINR);
+  const taxINR = discountedINR * GST_RATE;
 
   const handleCoupon = () => {
     if (couponInput.toUpperCase() === 'CHIC15') {
@@ -32,7 +36,7 @@ const Cart = () => {
           <p className="font-body text-sm text-muted-foreground mb-8">Browse our collection and find something you love</p>
           <Link
             to="/products"
-            className="inline-flex items-center gap-2 bg-foreground text-background px-8 py-3 text-sm font-body font-medium tracking-wide hover:bg-foreground/90 transition-colors active:scale-[0.97] rounded-md"
+            className="inline-flex items-center gap-2 btn-primary-gradient px-8 py-3 text-sm font-body font-medium tracking-wide hover:opacity-95 transition-colors active:scale-[0.97] rounded-md"
           >
             CONTINUE SHOPPING
             <ArrowRight className="h-4 w-4" />
@@ -93,7 +97,7 @@ const Cart = () => {
                           <Plus className="h-3 w-3" />
                         </button>
                       </div>
-                      <span className="font-body text-sm font-semibold tabular-nums">${(discounted * item.quantity).toFixed(2)}</span>
+                      <span className="font-body text-sm font-semibold tabular-nums">{formatINR(toINRValue(discounted * item.quantity))}</span>
                     </div>
                   </div>
                 </motion.div>
@@ -117,7 +121,7 @@ const Cart = () => {
                 />
                 <button
                   onClick={handleCoupon}
-                  className="px-4 py-2 text-xs font-body font-medium bg-foreground text-background rounded-md hover:bg-foreground/90 transition-colors active:scale-95"
+                  className="px-4 py-2 text-xs font-body font-medium btn-primary-gradient rounded-md hover:opacity-95 transition-colors active:scale-95"
                 >
                   Apply
                 </button>
@@ -132,31 +136,31 @@ const Cart = () => {
               <div className="space-y-3 text-sm font-body border-t border-border pt-4">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span className="tabular-nums">${subtotal.toFixed(2)}</span>
+                  <span className="tabular-nums">{formatINR(subtotalINR)}</span>
                 </div>
                 {state.couponDiscount > 0 && (
                   <div className="flex justify-between text-primary">
                     <span>Discount</span>
-                    <span className="tabular-nums">-${(subtotal - total).toFixed(2)}</span>
+                    <span className="tabular-nums">-{formatINR(discountAmountINR)}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="tabular-nums">{shipping === 0 ? 'Free' : `$${shipping.toFixed(2)}`}</span>
+                  <span className="tabular-nums">{shippingINR === 0 ? 'Free' : formatINR(shippingINR)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tax</span>
-                  <span className="tabular-nums">${tax.toFixed(2)}</span>
+                  <span className="text-muted-foreground">GST (18%)</span>
+                  <span className="tabular-nums">{formatINR(taxINR)}</span>
                 </div>
                 <div className="flex justify-between border-t border-border pt-3 font-semibold text-base">
                   <span>Total</span>
-                  <span className="tabular-nums">${(total + shipping + tax).toFixed(2)}</span>
+                  <span className="tabular-nums">{formatINR(discountedINR + shippingINR + taxINR)}</span>
                 </div>
               </div>
 
               <Link
                 to="/checkout"
-                className="w-full flex items-center justify-center gap-2 bg-foreground text-background py-3.5 mt-6 text-sm font-body font-medium tracking-wide hover:bg-foreground/90 transition-colors active:scale-[0.97] rounded-md"
+                className="w-full flex items-center justify-center gap-2 btn-primary-gradient py-3.5 mt-6 text-sm font-body font-medium tracking-wide hover:opacity-95 transition-colors active:scale-[0.97] rounded-md"
               >
                 PROCEED TO CHECKOUT
                 <ArrowRight className="h-4 w-4" />

@@ -43,6 +43,17 @@ const AdminBanners = () => {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-banners'] }); toast.success('Deleted'); },
   });
 
+  const handleSystemImagePick = (file?: File | null) => {
+    if (!file || !editing) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : '';
+      setEditing({ ...editing, image_url: result });
+      toast.success('Banner image loaded from system');
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <AdminLayout title="Banners">
       <div className="flex justify-between items-center mb-6">
@@ -79,8 +90,18 @@ const AdminBanners = () => {
             <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(editing); }} className="space-y-4">
               <div><Label className="font-body text-xs">Title</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} required /></div>
               <div><Label className="font-body text-xs">Subtitle</Label><Input value={editing.subtitle || ''} onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })} /></div>
-              <div><Label className="font-body text-xs">Image URL</Label><Input value={editing.image_url} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} required /></div>
-              <div><Label className="font-body text-xs">Link</Label><Input value={editing.link || ''} onChange={(e) => setEditing({ ...editing, link: e.target.value })} /></div>
+              <div>
+                <Label className="font-body text-xs">Image URL</Label>
+                <Input value={editing.image_url} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} required />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Upload Image From System</Label>
+                <Input type="file" accept="image/*" onChange={(e) => handleSystemImagePick(e.target.files?.[0] || null)} />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Link</Label>
+                <Input value={editing.link || ''} onChange={(e) => setEditing({ ...editing, link: e.target.value })} placeholder="/products?category=dresses" />
+              </div>
               <div><Label className="font-body text-xs">Position</Label>
                 <select value={editing.position} onChange={(e) => setEditing({ ...editing, position: e.target.value })} className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background">
                   <option value="hero">Hero</option>

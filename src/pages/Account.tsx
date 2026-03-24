@@ -8,9 +8,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { LogOut, Package, Heart, User } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { formatINR, toINRValue } from '@/lib/pricing';
 
 const Account = () => {
-  const { user, loading, signIn, signUp, signOut, isAdmin } = useAuth();
+  const { user, loading, signIn, signInWithGoogle, signUp, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
@@ -19,6 +22,20 @@ const Account = () => {
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  const { data: orders } = useQuery({
+    queryKey: ['my-orders', user?.id],
+    enabled: !!user,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user!.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
 
   if (loading) {
     return <Layout><div className="container mx-auto px-4 py-24 text-center font-body text-muted-foreground">Loading...</div></Layout>;
@@ -59,6 +76,38 @@ const Account = () => {
             )}
           </div>
 
+          <div className="bg-card border border-border rounded-lg p-6 mb-6">
+            <h2 className="font-display text-2xl font-semibold mb-4">My Orders</h2>
+            {!orders || orders.length === 0 ? (
+              <p className="font-body text-sm text-muted-foreground">No orders yet.</p>
+            ) : (
+              <div className="space-y-4">
+                {orders.map((order) => {
+                  const steps = ['pending', 'confirmed', 'shipped', 'delivered'];
+                  const activeStep = Math.max(0, steps.indexOf(order.status.toLowerCase()));
+                  return (
+                    <div key={order.id} className="rounded-lg border border-border p-4">
+                      <div className="flex items-center justify-between gap-4 flex-wrap">
+                        <p className="text-xs font-body text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
+                        <p className="text-sm font-body font-semibold">{formatINR(toINRValue(Number(order.total_amount)))}</p>
+                      </div>
+                      <div className="mt-3 grid grid-cols-4 gap-2">
+                        {steps.map((step, idx) => (
+                          <div key={step} className="space-y-1">
+                            <div className={`h-1.5 rounded-full ${idx <= activeStep ? 'bg-primary' : 'bg-secondary'}`} />
+                            <p className={`text-[10px] uppercase tracking-wide font-body ${idx <= activeStep ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              {step}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           <button onClick={() => { signOut(); navigate('/'); }} className="flex items-center gap-2 text-sm font-body text-muted-foreground hover:text-foreground transition-colors">
             <LogOut className="h-4 w-4" /> Sign Out
           </button>
@@ -70,9 +119,26 @@ const Account = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await signIn(loginEmail, loginPassword);
+    const { data, error } = await signIn(loginEmail, loginPassword);
     setSubmitting(false);
     if (error) { toast.error(error.message); return; }
+
+    const userId = data?.user?.id;
+    if (userId) {
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
+
+      if (roleData) {
+        toast.success('Welcome admin!');
+        navigate('/admin');
+        return;
+      }
+    }
+
     toast.success('Welcome back!');
     navigate('/');
   };
@@ -98,9 +164,20 @@ const Account = () => {
             </TabsList>
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const { error } = await signInWithGoogle();
+                    if (error) toast.error(error.message);
+                  }}
+                  className="w-full border border-border bg-background py-3 text-sm font-body font-medium rounded-md hover:bg-accent transition-colors"
+                >
+                  CONTINUE WITH GOOGLE
+                </button>
+                <div className="text-center text-xs text-muted-foreground font-body">or continue with email</div>
                 <div><Label className="font-body text-sm">Email</Label><Input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="your@email.com" className="mt-1.5" required /></div>
                 <div><Label className="font-body text-sm">Password</Label><Input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="••••••••" className="mt-1.5" required /></div>
-                <button type="submit" disabled={submitting} className="w-full bg-foreground text-background py-3 text-sm font-body font-medium tracking-wide hover:bg-foreground/90 transition-colors active:scale-[0.97] rounded-md disabled:opacity-50">
+                <button type="submit" disabled={submitting} className="w-full btn-primary-gradient py-3 text-sm font-body font-medium tracking-wide hover:opacity-95 transition-colors active:scale-[0.97] rounded-md disabled:opacity-50">
                   {submitting ? 'SIGNING IN...' : 'SIGN IN'}
                 </button>
               </form>
@@ -113,7 +190,7 @@ const Account = () => {
                 </div>
                 <div><Label className="font-body text-sm">Email</Label><Input type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="your@email.com" className="mt-1.5" required /></div>
                 <div><Label className="font-body text-sm">Password</Label><Input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••" className="mt-1.5" required minLength={6} /></div>
-                <button type="submit" disabled={submitting} className="w-full bg-foreground text-background py-3 text-sm font-body font-medium tracking-wide hover:bg-foreground/90 transition-colors active:scale-[0.97] rounded-md disabled:opacity-50">
+                <button type="submit" disabled={submitting} className="w-full btn-primary-gradient py-3 text-sm font-body font-medium tracking-wide hover:opacity-95 transition-colors active:scale-[0.97] rounded-md disabled:opacity-50">
                   {submitting ? 'CREATING...' : 'CREATE ACCOUNT'}
                 </button>
               </form>

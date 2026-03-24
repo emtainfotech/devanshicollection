@@ -26,16 +26,16 @@ const ProductGrid = ({ title, subtitle, filter, limit = 4 }: ProductGridProps) =
   }
 
   return (
-    <section className="py-16 md:py-24">
+    <section className="py-12 md:py-20">
       <div className="container mx-auto px-4">
-        <motion.div initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }} whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} className="flex items-end justify-between mb-10">
+        <motion.div initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }} whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} className="flex items-end justify-between mb-7 md:mb-10">
           <div>
-            <h2 className="font-display text-3xl md:text-4xl font-semibold text-foreground" style={{ lineHeight: '1.1' }}>{title}</h2>
-            {subtitle && <p className="font-body text-muted-foreground mt-2">{subtitle}</p>}
+            <h2 className="font-display text-2xl md:text-4xl font-semibold text-foreground" style={{ lineHeight: '1.1' }}>{title}</h2>
+            {subtitle && <p className="font-body text-sm md:text-base text-muted-foreground mt-1.5 md:mt-2">{subtitle}</p>}
           </div>
           <Link to="/products" className="hidden md:inline-flex text-sm font-body font-medium text-foreground underline underline-offset-4 hover:text-primary transition-colors">View All</Link>
         </motion.div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3.5 md:gap-5">
           {products.map((product: any, i: number) => (
             <motion.div key={product.id} initial={{ opacity: 0, y: 16, filter: 'blur(4px)' }} whileInView={{ opacity: 1, y: 0, filter: 'blur(0px)' }} viewport={{ once: true, amount: 0.2 }} transition={{ duration: 0.5, delay: i * 0.08, ease: [0.16, 1, 0.3, 1] }}>
               <ProductCard product={product} />
