@@ -10,6 +10,15 @@ import { Heart, ShoppingBag, Star, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatINR, toINRValue } from '@/lib/pricing';
 
+const isValidImageSrc = (value: string) => {
+  const v = String(value || '').trim();
+  if (!v) return false;
+  if (v.startsWith('data:image/') && v.includes(';base64,')) return true;
+  if (/^https?:\/\//i.test(v)) return true;
+  if (v.startsWith('/')) return true;
+  return false;
+};
+
 const ProductDetail = () => {
   const { slug } = useParams();
   const { data: product, isLoading } = useProduct(slug || '');
@@ -52,7 +61,7 @@ const ProductDetail = () => {
   const price = Number(product.price);
   const discountedPrice = price * (1 - (product.discount || 0) / 100);
   const wishlisted = isInWishlist(product.id);
-  const images = (product.images || []).filter((img: string) => !!img && (img.startsWith('http') || img.includes(',')));
+  const images = (product.images || []).filter((img: string) => isValidImageSrc(img));
 
   const handleAddToCart = () => {
     if (!selectedSize) { toast.error('Please select a size'); return; }
@@ -84,13 +93,23 @@ const ProductDetail = () => {
         <div className="grid md:grid-cols-2 gap-8 lg:gap-16">
           <motion.div initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}>
             <div className="aspect-[3/4] rounded-lg overflow-hidden bg-secondary mb-3">
-              <img src={images[selectedImage] || ''} alt={product.name} className="w-full h-full object-cover" />
+              <img
+                src={images[selectedImage] || '/placeholder.svg'}
+                alt={product.name}
+                className="w-full h-full object-cover"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+              />
             </div>
             {images.length > 1 && (
               <div className="flex gap-3">
                 {images.map((img: string, i: number) => (
                   <button key={i} onClick={() => setSelectedImage(i)} className={`w-20 aspect-[3/4] rounded-md overflow-hidden border-2 ${i === selectedImage ? 'border-foreground' : 'border-transparent'}`}>
-                    <img src={img} alt="" className="w-full h-full object-cover" />
+                    <img
+                      src={img}
+                      alt=""
+                      className="w-full h-full object-cover"
+                      onError={(e) => { (e.currentTarget as HTMLImageElement).src = '/placeholder.svg'; }}
+                    />
                   </button>
                 ))}
               </div>
