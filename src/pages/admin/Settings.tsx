@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { useSiteSettings } from '@/hooks/useData';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
 const AdminSettings = () => {
   const queryClient = useQueryClient();
@@ -14,17 +14,7 @@ const AdminSettings = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (text: string) => {
-      const payload = {
-        announcement_text: text.trim(),
-        updated_at: new Date().toISOString(),
-      };
-      if (settings?.id) {
-        const { error } = await supabase.from('site_settings').update(payload).eq('id', settings.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('site_settings').insert(payload);
-        if (error) throw error;
-      }
+      await api.put('/admin/site-settings', { announcement_text: text.trim() });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site-settings'] });
@@ -34,16 +24,11 @@ const AdminSettings = () => {
   });
 
   const value = announcementText || (settings as any)?.announcement_text || '';
-  const isSettingsTableMissing = (settings as any) === null;
+  const isSettingsTableMissing = false;
 
   return (
     <AdminLayout title="Site Settings">
       <div className="bg-background rounded-lg border border-border p-6 max-w-3xl">
-        {isSettingsTableMissing && (
-          <p className="mb-4 text-sm text-destructive">
-            `site_settings` table not found. Run latest Supabase migration first.
-          </p>
-        )}
         <h2 className="font-display text-xl font-semibold mb-4">Top Announcement Bar</h2>
         <div className="space-y-2">
           <Label className="font-body text-xs">Announcement text</Label>

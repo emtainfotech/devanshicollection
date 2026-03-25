@@ -1,8 +1,15 @@
 // Prices are stored in INR in the database.
 export const USD_TO_INR = 1;
 export const GST_RATE = 0.18;
-export const SHIPPING_FLAT_INR = 99;
-export const SHIPPING_FREE_THRESHOLD_INR = 4999;
+
+// Defaults (will be overridden by dynamic rules if implemented)
+export let SHIPPING_FLAT_INR = 100;
+export let SHIPPING_FREE_THRESHOLD_INR = 4999;
+
+export const setShippingRules = (flat: number, threshold: number) => {
+  SHIPPING_FLAT_INR = flat;
+  SHIPPING_FREE_THRESHOLD_INR = threshold;
+};
 
 export const toINRValue = (value: number) => value * USD_TO_INR;
 

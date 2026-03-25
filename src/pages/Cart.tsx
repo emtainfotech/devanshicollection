@@ -6,10 +6,12 @@ import { Minus, Plus, X, ShoppingBag, ArrowRight } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { formatINR, getShippingINR, GST_RATE, toINRValue } from '@/lib/pricing';
+import { api } from '@/lib/api';
 
 const Cart = () => {
   const { state, removeItem, updateQuantity, applyCoupon, removeCoupon, itemCount, subtotal, total } = useCart();
   const [couponInput, setCouponInput] = useState('');
+  const [isValidating, setIsValidating] = useState(false);
 
   const subtotalINR = toINRValue(subtotal);
   const discountedINR = toINRValue(total);
@@ -17,14 +19,19 @@ const Cart = () => {
   const shippingINR = getShippingINR(subtotalINR);
   const taxINR = discountedINR * GST_RATE;
 
-  const handleCoupon = () => {
-    if (couponInput.toUpperCase() === 'CHIC15') {
-      applyCoupon('CHIC15', 15);
-      toast.success('Coupon applied! 15% off');
-    } else {
-      toast.error('Invalid coupon code');
+  const handleCoupon = async () => {
+    if (!couponInput.trim()) return;
+    setIsValidating(true);
+    try {
+      const res = await api.post('/coupons/validate', { code: couponInput, amount: subtotal });
+      applyCoupon(res.code, Number(res.discount_value), res.discount_type);
+      toast.success(`Coupon applied! ${res.discount_type === 'percentage' ? res.discount_value + '%' : formatINR(toINRValue(res.discount_value))} off`);
+      setCouponInput('');
+    } catch (error: any) {
+      toast.error(error.message || 'Invalid coupon code');
+    } finally {
+      setIsValidating(false);
     }
-    setCouponInput('');
   };
 
   if (itemCount === 0) {
@@ -121,14 +128,17 @@ const Cart = () => {
                 />
                 <button
                   onClick={handleCoupon}
-                  className="px-4 py-2 text-xs font-body font-medium btn-primary-gradient rounded-md hover:opacity-95 transition-colors active:scale-95"
+                  disabled={isValidating}
+                  className="px-4 py-2 text-xs font-body font-medium btn-primary-gradient rounded-md hover:opacity-95 transition-colors active:scale-95 disabled:opacity-50"
                 >
-                  Apply
+                  {isValidating ? '...' : 'Apply'}
                 </button>
               </div>
               {state.couponCode && (
                 <div className="flex items-center justify-between text-xs font-body mb-4 bg-primary/5 px-3 py-2 rounded-md">
-                  <span className="text-primary font-medium">Coupon: {state.couponCode} (-{state.couponDiscount}%)</span>
+                  <span className="text-primary font-medium">
+                    Coupon: {state.couponCode} (-{state.couponType === 'percentage' ? state.couponDiscount + '%' : formatINR(toINRValue(state.couponDiscount))})
+                  </span>
                   <button onClick={removeCoupon} className="text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>
                 </div>
               )}

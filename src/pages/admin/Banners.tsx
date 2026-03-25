@@ -1,25 +1,26 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const AdminBanners = () => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ position: 'all', status: 'all' });
 
   const { data: banners } = useQuery({
     queryKey: ['admin-banners'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('banners').select('*').order('sort_order');
-      if (error) throw error;
-      return data;
+      return await api.get('/admin/banners');
     },
   });
 
@@ -27,11 +28,9 @@ const AdminBanners = () => {
     mutationFn: async (b: any) => {
       const payload = { title: b.title, subtitle: b.subtitle || null, image_url: b.image_url, link: b.link || null, position: b.position, is_active: b.is_active, sort_order: parseInt(b.sort_order) || 0 };
       if (b.id) {
-        const { error } = await supabase.from('banners').update(payload).eq('id', b.id);
-        if (error) throw error;
+        await api.put(`/admin/banners/${b.id}`, payload);
       } else {
-        const { error } = await supabase.from('banners').insert(payload);
-        if (error) throw error;
+        await api.post('/admin/banners', payload);
       }
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-banners'] }); setDialogOpen(false); toast.success('Banner saved'); },
@@ -39,9 +38,21 @@ const AdminBanners = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from('banners').delete().eq('id', id); if (error) throw error; },
+    mutationFn: async (id: string) => { await api.del(`/admin/banners/${id}`); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-banners'] }); toast.success('Deleted'); },
   });
+
+  const filteredBanners = useMemo(() => {
+    if (!banners) return [];
+    return banners.filter((b: any) => {
+      const searchLower = search.toLowerCase();
+      const titleMatch = b.title.toLowerCase().includes(searchLower);
+      const subtitleMatch = (b.subtitle || '').toLowerCase().includes(searchLower);
+      const positionMatch = filters.position === 'all' || b.position === filters.position;
+      const statusMatch = filters.status === 'all' || (b.is_active ? 'active' : 'inactive') === filters.status;
+      return (titleMatch || subtitleMatch) && positionMatch && statusMatch;
+    });
+  }, [banners, search, filters]);
 
   const handleSystemImagePick = (file?: File | null) => {
     if (!file || !editing) return;
@@ -56,13 +67,42 @@ const AdminBanners = () => {
 
   return (
     <AdminLayout title="Banners">
-      <div className="flex justify-between items-center mb-6">
-        <p className="font-body text-sm text-muted-foreground">{banners?.length || 0} banners</p>
-        <Button onClick={() => { setEditing({ title: '', subtitle: '', image_url: '', link: '', position: 'hero', is_active: true, sort_order: '0' }); setDialogOpen(true); }} size="sm"><Plus className="h-4 w-4 mr-1" /> Add Banner</Button>
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+        <div className="relative w-full md:w-64">
+          <Input 
+            placeholder="Search by title or subtitle..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={filters.position} onValueChange={(v) => setFilters(f => ({ ...f, position: v }))}>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Position" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Positions</SelectItem>
+              <SelectItem value="hero">Hero</SelectItem>
+              <SelectItem value="mid">Mid</SelectItem>
+              <SelectItem value="footer">Footer</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => { setEditing({ title: '', subtitle: '', image_url: '', link: '', position: 'hero', is_active: true, sort_order: '0' }); setDialogOpen(true); }} size="sm" className="gap-1">
+            <Plus className="h-4 w-4" /> New
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4">
-        {banners?.map((b) => (
+        {filteredBanners?.map((b) => (
           <div key={b.id} className="bg-background rounded-lg border border-border p-4 flex gap-4 items-center">
             <img src={b.image_url} alt={b.title} className="w-32 h-20 rounded object-cover" />
             <div className="flex-1">

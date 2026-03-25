@@ -1,25 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
 const AdminChatbotLogs = () => {
   const { data: logs, isLoading } = useQuery({
     queryKey: ['admin-chatbot-logs'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('chatbot_messages')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(200);
-      if (error) {
-        if ((error as any).code === '42P01') {
-          toast.error("Missing table: public.chatbot_messages. Run latest Supabase migration.");
-          return [];
-        }
-        throw error;
-      }
-      return data;
+      return await api.get('/admin/chatbot-logs');
     },
   });
 

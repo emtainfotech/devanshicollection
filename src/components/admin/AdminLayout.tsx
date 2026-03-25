@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, Package, Grid3X3, Image, ShoppingCart, Tag, LogOut, ChevronLeft, MessageSquare, Settings, Bot } from 'lucide-react';
+import { LayoutDashboard, Package, Grid3X3, Image, ShoppingCart, Tag, LogOut, ChevronLeft, MessageSquare, Settings, Bot, FileText } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -13,6 +13,7 @@ const NAV_ITEMS = [
   { label: 'Categories', href: '/admin/categories', icon: Grid3X3 },
   { label: 'Banners', href: '/admin/banners', icon: Image },
   { label: 'Testimonials', href: '/admin/testimonials', icon: MessageSquare },
+  { label: 'Blogs', href: '/admin/blogs', icon: FileText },
   { label: 'Chatbot Activity', href: '/admin/chatbot-logs', icon: Bot },
   { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { label: 'Coupons', href: '/admin/coupons', icon: Tag },

@@ -1,25 +1,26 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const AdminCategories = () => {
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
 
   const { data: categories, isLoading } = useQuery({
     queryKey: ['admin-categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*').order('sort_order');
-      if (error) throw error;
-      return data;
+      return await api.get('/admin/categories');
     },
   });
 
@@ -35,11 +36,9 @@ const AdminCategories = () => {
         is_active: cat.is_active !== false,
       };
       if (cat.id) {
-        const { error } = await supabase.from('categories').update(payload).eq('id', cat.id);
-        if (error) throw error;
+        await api.put(`/admin/categories/${cat.id}`, payload);
       } else {
-        const { error } = await supabase.from('categories').insert(payload);
-        if (error) throw error;
+        await api.post('/admin/categories', payload);
       }
     },
     onSuccess: () => {
@@ -51,10 +50,20 @@ const AdminCategories = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const filteredCategories = useMemo(() => {
+    if (!categories) return [];
+    return categories.filter((c: any) => {
+      const searchLower = search.toLowerCase();
+      const nameMatch = c.name.toLowerCase().includes(searchLower);
+      const slugMatch = c.slug.toLowerCase().includes(searchLower);
+      const statusMatch = filter === 'all' || (c.is_active ? 'active' : 'inactive') === filter;
+      return (nameMatch || slugMatch) && statusMatch;
+    });
+  }, [categories, search, filter]);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('categories').delete().eq('id', id);
-      if (error) throw error;
+      await api.del(`/admin/categories/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-categories'] });
@@ -80,9 +89,27 @@ const AdminCategories = () => {
 
   return (
     <AdminLayout title="Categories">
-      <div className="flex justify-between items-center mb-6">
-        <p className="font-body text-sm text-muted-foreground">{categories?.length || 0} categories</p>
-        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" /> Add Category</Button>
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+        <div className="relative w-full md:w-64">
+          <Input 
+            placeholder="Search by name or slug..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={filter} onValueChange={setFilter}>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={openNew} size="sm" className="gap-1"><Plus className="h-4 w-4" /> New</Button>
+        </div>
       </div>
 
       <div className="bg-background rounded-lg border border-border overflow-hidden">
@@ -97,7 +124,7 @@ const AdminCategories = () => {
             </tr>
           </thead>
           <tbody>
-            {categories?.map((c) => (
+            {filteredCategories?.map((c) => (
               <tr key={c.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
                 <td className="p-3 flex items-center gap-3">
                   {c.image_url && <img src={c.image_url} alt="" className="w-10 h-10 rounded object-cover" />}

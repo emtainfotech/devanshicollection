@@ -1,35 +1,34 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { formatINR, toINRValue } from '@/lib/pricing';
+import { api } from '@/lib/api';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const AdminProducts = () => {
   const queryClient = useQueryClient();
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filters, setFilters] = useState({ category: 'all', status: 'all' });
 
   const { data: products, isLoading } = useQuery({
     queryKey: ['admin-products'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('products').select('*, categories(name)').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      return await api.get('/admin/products');
     },
   });
 
   const { data: categories } = useQuery({
     queryKey: ['categories'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('categories').select('*').order('sort_order');
-      if (error) throw error;
-      return data;
+      return await api.get('/categories');
     },
   });
 
@@ -62,11 +61,9 @@ const AdminProducts = () => {
       };
 
       if (product.id) {
-        const { error } = await supabase.from('products').update(payload).eq('id', product.id);
-        if (error) throw error;
+        await api.put(`/admin/products/${product.id}`, payload);
       } else {
-        const { error } = await supabase.from('products').insert(payload);
-        if (error) throw error;
+        await api.post('/admin/products', payload);
       }
     },
     onSuccess: () => {
@@ -78,10 +75,21 @@ const AdminProducts = () => {
     onError: (err: any) => toast.error(err.message),
   });
 
+  const filteredProducts = useMemo(() => {
+    if (!products) return [];
+    return products.filter((p: any) => {
+      const searchLower = search.toLowerCase();
+      const nameMatch = p.name.toLowerCase().includes(searchLower);
+      const slugMatch = p.slug.toLowerCase().includes(searchLower);
+      const categoryMatch = filters.category === 'all' || p.category_id === filters.category;
+      const statusMatch = filters.status === 'all' || (p.is_active ? 'active' : 'inactive') === filters.status;
+      return (nameMatch || slugMatch) && categoryMatch && statusMatch;
+    });
+  }, [products, search, filters]);
+
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('products').delete().eq('id', id);
-      if (error) throw error;
+      await api.del(`/admin/products/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-products'] });
@@ -144,9 +152,34 @@ const AdminProducts = () => {
 
   return (
     <AdminLayout title="Products">
-      <div className="flex justify-between items-center mb-6">
-        <p className="font-body text-sm text-muted-foreground">{products?.length || 0} products</p>
-        <Button onClick={openNew} size="sm"><Plus className="h-4 w-4 mr-1" /> Add Product</Button>
+      <div className="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+        <div className="relative w-full md:w-64">
+          <Input 
+            placeholder="Search by name or slug..." 
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        </div>
+        <div className="flex items-center gap-2">
+          <Select value={filters.category} onValueChange={(v) => setFilters(f => ({ ...f, category: v }))}>
+            <SelectTrigger className="w-40"><SelectValue placeholder="Category" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Categories</SelectItem>
+              {categories?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={filters.status} onValueChange={(v) => setFilters(f => ({ ...f, status: v }))}>
+            <SelectTrigger className="w-32"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={openNew} size="sm" className="gap-1"><Plus className="h-4 w-4" /> New</Button>
+        </div>
       </div>
 
       <div className="bg-background rounded-lg border border-border overflow-hidden">
@@ -162,7 +195,7 @@ const AdminProducts = () => {
             </tr>
           </thead>
           <tbody>
-            {products?.map((p) => (
+            {filteredProducts.map((p) => (
               <tr key={p.id} className="border-b border-border last:border-0 hover:bg-secondary/30">
                 <td className="p-3">
                   <div className="flex items-center gap-3">

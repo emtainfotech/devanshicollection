@@ -1,32 +1,50 @@
 import { motion } from 'framer-motion';
-import { Truck, RotateCcw, Shield, Headphones } from 'lucide-react';
+import { Truck, RotateCcw, ShieldCheck, Headphones } from 'lucide-react';
 
 const features = [
-  { icon: Truck, title: 'Free Shipping', desc: 'On orders over ₹4,999' },
-  { icon: RotateCcw, title: 'Easy Returns', desc: '30-day return policy' },
-  { icon: Shield, title: 'Secure Payment', desc: '100% secure checkout' },
-  { icon: Headphones, title: 'Support 24/7', desc: 'Dedicated assistance' },
+  { 
+    icon: Truck, 
+    title: 'FREE SHIPPING', 
+    desc: 'On all orders above ₹4,999' 
+  },
+  { 
+    icon: RotateCcw, 
+    title: '15 DAYS RETURN', 
+    desc: 'Easy returns and exchanges' 
+  },
+  { 
+    icon: ShieldCheck, 
+    title: 'SECURE PAYMENT', 
+    desc: '100% secure payment methods' 
+  },
+  { 
+    icon: Headphones, 
+    title: '24/7 SUPPORT', 
+    desc: 'Ready to assist you anytime' 
+  },
 ];
 
 const Features = () => {
   return (
-    <section className="py-16 border-t border-border">
+    <section className="py-20 border-y border-border bg-secondary/20">
       <div className="container mx-auto px-4">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-y-12 gap-x-8">
           {features.map((f, i) => (
             <motion.div
               key={f.title}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, amount: 0.3 }}
-              transition={{ duration: 0.5, delay: i * 0.1, ease: [0.16, 1, 0.3, 1] }}
-              className="text-center"
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: i * 0.1 }}
+              className="flex flex-col items-center text-center group"
             >
-              <div className="inline-flex p-3 bg-accent rounded-full mb-3">
-                <f.icon className="h-5 w-5 text-primary" />
+              <div className="mb-6 relative">
+                <div className="w-16 h-16 bg-background rounded-full flex items-center justify-center shadow-sm group-hover:shadow-md group-hover:scale-110 transition-all duration-300">
+                  <f.icon className="h-7 w-7 text-primary" strokeWidth={1.5} />
+                </div>
               </div>
-              <h3 className="font-body text-sm font-semibold text-foreground">{f.title}</h3>
-              <p className="font-body text-xs text-muted-foreground mt-1">{f.desc}</p>
+              <h3 className="font-display text-xs font-bold tracking-[0.2em] text-foreground mb-2 uppercase">{f.title}</h3>
+              <p className="font-body text-[11px] md:text-xs text-muted-foreground leading-relaxed max-w-[150px] mx-auto uppercase tracking-wider">{f.desc}</p>
             </motion.div>
           ))}
         </div>

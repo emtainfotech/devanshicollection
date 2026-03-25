@@ -1,41 +1,41 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '@/components/layout/Layout';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { LogOut, Package, Heart, User } from 'lucide-react';
+import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { formatINR, toINRValue } from '@/lib/pricing';
+import { api } from '@/lib/api';
 
 const Account = () => {
   const { user, loading, signIn, signInWithGoogle, signUp, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
+  const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  const [regFirst, setRegFirst] = useState('');
-  const [regLast, setRegLast] = useState('');
   const [regEmail, setRegEmail] = useState('');
   const [regPassword, setRegPassword] = useState('');
+  const [regFirst, setRegFirst] = useState('');
+  const [regLast, setRegLast] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // ... (rest of states)
 
   const { data: orders } = useQuery({
     queryKey: ['my-orders', user?.id],
     enabled: !!user,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      return await api.get('/my-orders');
     },
   });
+
+  const toggleOrder = (id: string) => {
+    setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
 
   if (loading) {
     return <Layout><div className="container mx-auto px-4 py-24 text-center font-body text-muted-foreground">Loading...</div></Layout>;
@@ -46,6 +46,7 @@ const Account = () => {
       <Layout>
         <div className="container mx-auto px-4 py-12 max-w-2xl">
           <h1 className="font-display text-4xl font-semibold mb-8" style={{ lineHeight: '1.1' }}>My Account</h1>
+          {/* ... (profile card) */}
           <div className="bg-card border border-border rounded-lg p-6 mb-6">
             <div className="flex items-center gap-4 mb-4">
               <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -82,25 +83,111 @@ const Account = () => {
               <p className="font-body text-sm text-muted-foreground">No orders yet.</p>
             ) : (
               <div className="space-y-4">
-                {orders.map((order) => {
+                {orders.map((order: any) => {
                   const steps = ['pending', 'confirmed', 'shipped', 'delivered'];
                   const activeStep = Math.max(0, steps.indexOf(order.status.toLowerCase()));
+                  const isExpanded = expandedOrders.includes(order.id);
+
                   return (
-                    <div key={order.id} className="rounded-lg border border-border p-4">
-                      <div className="flex items-center justify-between gap-4 flex-wrap">
-                        <p className="text-xs font-body text-muted-foreground">Order #{order.id.slice(0, 8)}</p>
-                        <p className="text-sm font-body font-semibold">{formatINR(toINRValue(Number(order.total_amount)))}</p>
-                      </div>
-                      <div className="mt-3 grid grid-cols-4 gap-2">
-                        {steps.map((step, idx) => (
-                          <div key={step} className="space-y-1">
-                            <div className={`h-1.5 rounded-full ${idx <= activeStep ? 'bg-primary' : 'bg-secondary'}`} />
-                            <p className={`text-[10px] uppercase tracking-wide font-body ${idx <= activeStep ? 'text-foreground' : 'text-muted-foreground'}`}>
-                              {step}
-                            </p>
+                    <div key={order.id} className="rounded-lg border border-border overflow-hidden">
+                      <div 
+                        className="p-4 cursor-pointer hover:bg-secondary/20 transition-colors"
+                        onClick={() => toggleOrder(order.id)}
+                      >
+                        <div className="flex items-center justify-between gap-4 flex-wrap">
+                          <div className="flex items-center gap-3">
+                            {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                            <p className="text-xs font-body font-medium">Order #{order.id.slice(0, 8)}</p>
                           </div>
-                        ))}
+                          <p className="text-sm font-body font-bold">{formatINR(toINRValue(Number(order.total_amount)))}</p>
+                        </div>
+                        <div className="mt-4 grid grid-cols-4 gap-2">
+                          {steps.map((step, idx) => (
+                            <div key={step} className="space-y-1">
+                              <div className={`h-1.5 rounded-full ${idx <= activeStep ? 'bg-primary' : 'bg-secondary'}`} />
+                              <p className={`text-[10px] uppercase tracking-wide font-body font-semibold ${idx <= activeStep ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                {step}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
+
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="border-t border-border bg-secondary/10"
+                          >
+                            <div className="p-4 space-y-6">
+                              {/* Tracking Info */}
+                              {(order.tracking_number || order.status === 'shipped' || order.status === 'delivered') && (
+                                <div className="bg-background p-4 rounded-lg border border-border border-l-4 border-l-primary">
+                                  <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                    <Truck className="h-3.5 w-3.5" /> Tracking Details
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-4 text-xs font-body">
+                                    <div>
+                                      <p className="text-muted-foreground mb-1">Status</p>
+                                      <p className="font-bold text-primary uppercase">{order.status}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-muted-foreground mb-1">Tracking Number</p>
+                                      <p className="font-bold">{order.tracking_number || 'Awaiting update...'}</p>
+                                    </div>
+                                    {order.carrier && (
+                                      <div>
+                                        <p className="text-muted-foreground mb-1">Carrier</p>
+                                        <p className="font-bold">{order.carrier}</p>
+                                      </div>
+                                    )}
+                                    {order.shipped_at && (
+                                      <div>
+                                        <p className="text-muted-foreground mb-1">Shipped On</p>
+                                        <p className="font-bold">{new Date(order.shipped_at).toLocaleDateString()}</p>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Order Items */}
+                              <div>
+                                <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">
+                                  <Package className="h-3.5 w-3.5" /> Order Items
+                                </h4>
+                                <div className="space-y-3">
+                                  {order.items?.map((item: any) => (
+                                    <div key={item.id} className="flex gap-3 items-center bg-background p-2 rounded-lg border border-border">
+                                      <img src={item.product_image} alt={item.product_name} className="h-14 w-11 object-cover rounded-md" />
+                                      <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium truncate">{item.product_name}</p>
+                                        <p className="text-xs text-muted-foreground">{item.size} · {item.color} · Qty: {item.quantity}</p>
+                                      </div>
+                                      <div className="text-sm font-semibold">{formatINR(toINRValue(item.unit_price * item.quantity))}</div>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Summary & Invoice */}
+                              <div className="pt-4 border-t border-border flex items-end justify-between gap-4">
+                                <div className="space-y-1 text-xs font-body text-muted-foreground">
+                                  <p>Placed on {new Date(order.created_at).toLocaleString()}</p>
+                                  <p>Payment: <span className="font-bold uppercase text-primary">{order.payment_status}</span> via {order.payment_method}</p>
+                                </div>
+                                {order.status === 'delivered' && (
+                                  <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors">
+                                    <FileText className="h-3.5 w-3.5" /> Download Invoice
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
                   );
                 })}
@@ -119,28 +206,19 @@ const Account = () => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { data, error } = await signIn(loginEmail, loginPassword);
     setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
-
-    const userId = data?.user?.id;
-    if (userId) {
-      const { data: roleData } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', userId)
-        .eq('role', 'admin')
-        .maybeSingle();
-
-      if (roleData) {
+    try {
+      const data = await signIn(loginEmail, loginPassword);
+      if (String(data?.user?.role || '') === 'admin') {
         toast.success('Welcome admin!');
         navigate('/admin');
         return;
       }
+      toast.success('Welcome back!');
+      navigate('/');
+    } catch (err: any) {
+      toast.error(err?.message || 'Unable to login');
     }
-
-    toast.success('Welcome back!');
-    navigate('/');
   };
 
   const handleRegister = async (e: React.FormEvent) => {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MessageSquare, Send, X } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 
 type ChatRow = { from: 'user' | 'bot'; text: string };
 
@@ -37,17 +37,17 @@ const ChatbotWidget = () => {
     setMessages((prev) => [...prev, { from: 'user', text: question }, { from: 'bot', text: answer }]);
     setInput('');
 
-    await supabase.from('chatbot_messages').insert({
+    await api.post('/chatbot', {
       user_id: user?.id || null,
       question,
       answer,
       page_url: window.location.href,
       user_agent: navigator.userAgent,
-    } as any);
+    });
   };
 
   return (
-    <div className="fixed bottom-4 left-4 z-[60]">
+    <div className="fixed bottom-20 right-4 z-[60]">
       {open && (
         <div className="mb-3 w-[320px] rounded-xl border border-border bg-background shadow-xl">
           <div className="flex items-center justify-between border-b border-border px-3 py-2">
@@ -84,7 +84,7 @@ const ChatbotWidget = () => {
       )}
       <button
         onClick={() => setOpen((p) => !p)}
-        className="flex h-12 w-12 items-center justify-center rounded-full bg-foreground text-background shadow-lg hover:bg-foreground/90 transition-colors"
+        className="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-colors"
         aria-label="Open chatbot"
       >
         <MessageSquare className="h-5 w-5" />

@@ -4,7 +4,9 @@ import { motion } from 'framer-motion';
 import Layout from '@/components/layout/Layout';
 import ProductCard from '@/components/product/ProductCard';
 import { useProducts, useCategories } from '@/hooks/useData';
-import { SlidersHorizontal } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
+import { formatINR } from '@/lib/pricing';
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL'];
 const SORT_OPTIONS = [
@@ -17,100 +19,126 @@ const SORT_OPTIONS = [
 const Products = () => {
   const [searchParams] = useSearchParams();
   const categorySlug = searchParams.get('category');
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const searchQuery = searchParams.get('q');
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [priceRange, setPriceRange] = useState<number[]>([0, 10000]);
   const [sortBy, setSortBy] = useState('newest');
 
   const { data: categories } = useCategories();
-  const { data: products, isLoading } = useProducts({ categorySlug });
+  const { data: products, isLoading } = useProducts({ categorySlug, search: searchQuery || undefined });
   const category = categories?.find((c) => c.slug === categorySlug);
+  const title = searchQuery ? `Results for "${searchQuery}"` : category ? category.name : 'All Products';
 
   const filtered = useMemo(() => {
     let items = [...(products || [])];
     if (selectedSizes.length > 0) {
       items = items.filter((p) => p.sizes?.some((s: string) => selectedSizes.includes(s)));
     }
+    items = items.filter(p => {
+      const price = p.price * (1 - (p.discount || 0) / 100);
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
     switch (sortBy) {
-      case 'price-asc': items.sort((a, b) => Number(a.price) * (1 - (a.discount || 0) / 100) - Number(b.price) * (1 - (b.discount || 0) / 100)); break;
-      case 'price-desc': items.sort((a, b) => Number(b.price) * (1 - (b.discount || 0) / 100) - Number(a.price) * (1 - (a.discount || 0) / 100)); break;
+      case 'price-asc': items.sort((a, b) => (a.price * (1 - (a.discount || 0) / 100)) - (b.price * (1 - (b.discount || 0) / 100))); break;
+      case 'price-desc': items.sort((a, b) => (b.price * (1 - (b.discount || 0) / 100)) - (a.price * (1 - (a.discount || 0) / 100))); break;
       case 'rating': items.sort((a, b) => Number(b.rating || 0) - Number(a.rating || 0)); break;
     }
     return items;
-  }, [products, selectedSizes, sortBy]);
+  }, [products, selectedSizes, priceRange, sortBy]);
 
   const toggleSize = (size: string) => setSelectedSizes((prev) => prev.includes(size) ? prev.filter((s) => s !== size) : [...prev, size]);
 
   return (
     <Layout>
-      <div className="container mx-auto px-4 py-8">
-        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-8">
-          <h1 className="font-display text-4xl md:text-5xl font-semibold" style={{ lineHeight: '1.1' }}>
-            {category ? category.name : 'All Products'}
+      <div className="container mx-auto px-4 py-12">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-12 text-center">
+          <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-foreground">
+            {title}
           </h1>
-          <p className="font-body text-muted-foreground mt-2">{filtered.length} products</p>
+          <p className="font-body text-muted-foreground mt-3">{filtered.length} items</p>
         </motion.div>
 
-        <div className="flex items-center justify-between mb-6 pb-4 border-b border-border">
-          <button onClick={() => setFiltersOpen(!filtersOpen)} className="flex items-center gap-2 text-sm font-body font-medium active:scale-95 transition-transform">
-            <SlidersHorizontal className="h-4 w-4" /> Filters
-            {selectedSizes.length > 0 && <span className="bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full">{selectedSizes.length}</span>}
-          </button>
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)} className="text-sm font-body bg-transparent border-0 text-foreground cursor-pointer focus:outline-none">
-            {SORT_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </select>
-        </div>
-
-        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
-          {filtersOpen && (
-            <motion.aside initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="w-full md:w-56 flex-shrink-0">
-              <div className="mb-8">
-                <h3 className="font-body text-sm font-semibold mb-3">Categories</h3>
-                <div className="space-y-2">
-                  <Link to="/products" className={`block text-sm font-body py-1 ${!categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>All</Link>
+        <div className="flex flex-col lg:flex-row gap-12">
+          <aside className="w-full lg:w-64 flex-shrink-0">
+            <div className="sticky top-28 space-y-10">
+              <div>
+                <h3 className="font-display text-lg font-semibold mb-5 border-b pb-2">Categories</h3>
+                <div className="space-y-2.5">
+                  <Link to="/products" className={`block text-sm font-body transition-colors ${!categorySlug ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-primary'}`}>All Products</Link>
                   {categories?.map((cat) => (
-                    <Link key={cat.id} to={`/products?category=${cat.slug}`} className={`block text-sm font-body py-1 ${cat.slug === categorySlug ? 'text-primary font-medium' : 'text-muted-foreground hover:text-foreground'}`}>
+                    <Link key={cat.id} to={`/products?category=${cat.slug}`} className={`block text-sm font-body transition-colors ${cat.slug === categorySlug ? 'text-primary font-semibold' : 'text-muted-foreground hover:text-primary'}`}>
                       {cat.name}
                     </Link>
                   ))}
                 </div>
               </div>
-              <div className="mb-8">
-                <h3 className="font-body text-sm font-semibold mb-3">Sizes</h3>
-                <div className="flex flex-wrap gap-2">
+
+              <div>
+                <h3 className="font-display text-lg font-semibold mb-5 border-b pb-2">Size</h3>
+                <div className="flex flex-wrap gap-2.5">
                   {SIZES.map((size) => (
-                    <button key={size} onClick={() => toggleSize(size)} className={`px-3 py-1.5 text-xs font-body border rounded-md transition-colors active:scale-95 ${selectedSizes.includes(size) ? 'bg-foreground text-background border-foreground' : 'border-border hover:border-foreground'}`}>
+                    <button key={size} onClick={() => toggleSize(size)} className={`w-10 h-10 flex items-center justify-center text-xs font-body border rounded-full transition-all active:scale-95 ${selectedSizes.includes(size) ? 'bg-primary text-primary-foreground border-primary' : 'border-border hover:border-primary hover:text-primary'}`}>
                       {size}
                     </button>
                   ))}
                 </div>
               </div>
-              <button onClick={() => setSelectedSizes([])} className="text-xs font-body text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear All</button>
-            </motion.aside>
-          )}
+
+              <div>
+                <h3 className="font-display text-lg font-semibold mb-5 border-b pb-2">Price Range</h3>
+                <Slider defaultValue={[0, 10000]} max={10000} step={100} value={priceRange} onValueChange={setPriceRange} className="mt-6" />
+                <div className="flex justify-between text-xs font-body text-muted-foreground mt-4">
+                  <span>{formatINR(priceRange[0])}</span>
+                  <span>{formatINR(priceRange[1])}</span>
+                </div>
+              </div>
+
+              {(selectedSizes.length > 0 || priceRange[0] !== 0 || priceRange[1] !== 10000) && (
+                <button onClick={() => { setSelectedSizes([]); setPriceRange([0, 10000]); }} className="w-full py-2.5 text-xs font-body font-semibold tracking-wider uppercase border border-primary text-primary hover:bg-primary hover:text-primary-foreground transition-all rounded-md">
+                  Clear All Filters
+                </button>
+              )}
+            </div>
+          </aside>
 
           <div className="flex-1">
+            <div className="flex items-center justify-between mb-8 pb-4 border-b border-border">
+              <div className="hidden md:block" />
+              <div className="flex items-center gap-4 ml-auto">
+                <span className="text-xs font-body text-muted-foreground uppercase tracking-wider">Sort by:</span>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger className="w-[180px] h-9 border-none shadow-none focus:ring-0 font-body text-sm">
+                    <SelectValue placeholder="Newest" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SORT_OPTIONS.map((opt) => <SelectItem key={opt.value} value={opt.value} className="text-sm font-body">{opt.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             {isLoading ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
-                {[...Array(8)].map((_, i) => (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
+                {[...Array(9)].map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="aspect-[3/4] bg-secondary rounded-lg mb-3" />
-                    <div className="h-4 bg-secondary rounded w-3/4 mb-2" />
-                    <div className="h-3 bg-secondary rounded w-1/2" />
+                    <div className="aspect-[3/4] bg-secondary rounded-md mb-4" />
+                    <div className="h-4 bg-secondary rounded w-3/4 mb-2 mx-auto" />
+                    <div className="h-3 bg-secondary rounded w-1/4 mx-auto" />
                   </div>
                 ))}
               </div>
             ) : filtered.length > 0 ? (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-6 md:gap-8">
                 {filtered.map((product: any, i: number) => (
-                  <motion.div key={product.id} initial={{ opacity: 0, y: 12, filter: 'blur(4px)' }} animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }} transition={{ duration: 0.4, delay: i * 0.05, ease: [0.16, 1, 0.3, 1] }}>
+                  <motion.div key={product.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: i * 0.05 }}>
                     <ProductCard product={product} />
                   </motion.div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-24">
-                <p className="font-display text-2xl text-foreground mb-2">No products found</p>
-                <p className="font-body text-sm text-muted-foreground">Try adjusting your filters</p>
+              <div className="text-center py-32 bg-secondary/30 rounded-xl border border-dashed border-border">
+                <p className="font-display text-xl text-muted-foreground">No products found in this range</p>
+                <button onClick={() => { setSelectedSizes([]); setPriceRange([0, 10000]); }} className="mt-4 text-sm font-body text-primary underline underline-offset-4">Reset all filters</button>
               </div>
             )}
           </div>

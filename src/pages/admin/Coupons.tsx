@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -9,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { formatINR, toINRValue } from '@/lib/pricing';
+import { api } from '@/lib/api';
 
 const AdminCoupons = () => {
   const queryClient = useQueryClient();
@@ -18,9 +18,7 @@ const AdminCoupons = () => {
   const { data: coupons } = useQuery({
     queryKey: ['admin-coupons'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
-      return data;
+      return await api.get('/admin/coupons');
     },
   });
 
@@ -37,11 +35,9 @@ const AdminCoupons = () => {
         is_active: c.is_active,
       };
       if (c.id) {
-        const { error } = await supabase.from('coupons').update(payload).eq('id', c.id);
-        if (error) throw error;
+        await api.put(`/admin/coupons/${c.id}`, payload);
       } else {
-        const { error } = await supabase.from('coupons').insert(payload);
-        if (error) throw error;
+        await api.post('/admin/coupons', payload);
       }
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }); setDialogOpen(false); toast.success('Coupon saved'); },
@@ -49,7 +45,7 @@ const AdminCoupons = () => {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => { const { error } = await supabase.from('coupons').delete().eq('id', id); if (error) throw error; },
+    mutationFn: async (id: string) => { await api.del(`/admin/coupons/${id}`); },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['admin-coupons'] }); toast.success('Deleted'); },
   });
 

@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { ArrowRight } from 'lucide-react';
 import { formatINR, getShippingINR, GST_RATE, toINRValue, USD_TO_INR } from '@/lib/pricing';
+import { api } from '@/lib/api';
 
 type ShippingForm = {
   fullName: string;
@@ -65,38 +65,9 @@ const Checkout = () => {
 
     setPlacingOrder(true);
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user.id,
-          status: 'pending',
-          payment_status: 'unpaid',
-          payment_method: 'manual',
-          subtotal: total,
-          discount_amount: subtotal - total,
-          shipping_amount: shippingINR / USD_TO_INR,
-          tax_amount: gstINR / USD_TO_INR,
-          total_amount: grandTotalINR / USD_TO_INR,
-          coupon_code: state.couponCode,
-          shipping_address: {
-            full_name: form.fullName,
-            phone: form.phone,
-            address_line1: form.addressLine1,
-            city: form.city,
-            state: form.state,
-            postal_code: form.pincode,
-            country: 'India',
-          },
-        })
-        .select('id')
-        .single();
-
-      if (orderError) throw orderError;
-
-      const payload = state.items.map((item) => {
+      const items = state.items.map((item) => {
         const unitPrice = item.price * (1 - item.discount / 100);
         return {
-          order_id: order.id,
           product_id: item.productId,
           product_name: item.name,
           product_image: item.image,
@@ -108,8 +79,26 @@ const Checkout = () => {
         };
       });
 
-      const { error: itemsError } = await supabase.from('order_items').insert(payload);
-      if (itemsError) throw itemsError;
+      await api.post('/orders', {
+        items,
+        coupon_code: state.couponCode,
+        shipping_address: {
+          full_name: form.fullName,
+          phone: form.phone,
+          address_line1: form.addressLine1,
+          city: form.city,
+          state: form.state,
+          postal_code: form.pincode,
+          country: 'India',
+        },
+        totals: {
+          subtotal: total,
+          discount_amount: subtotal - total,
+          shipping_amount: shippingINR / USD_TO_INR,
+          tax_amount: gstINR / USD_TO_INR,
+          total_amount: grandTotalINR / USD_TO_INR,
+        },
+      });
 
       clearCart();
       toast.success('Order placed successfully!');

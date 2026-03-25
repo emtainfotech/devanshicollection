@@ -1,10 +1,8 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session } from '@supabase/supabase-js';
-import { supabase } from '@/integrations/supabase/client';
+import { createContext, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
+import { api, setToken } from '@/lib/api';
 
 interface AuthContextType {
-  user: User | null;
-  session: Session | null;
+  user: any | null;
   loading: boolean;
   isAdmin: boolean;
   signUp: (email: string, password: string, meta?: { first_name?: string; last_name?: string }) => Promise<any>;
@@ -16,71 +14,47 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
+  const [user, setUser] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAdmin, setIsAdmin] = useState(false);
+  const isAdmin = useMemo(() => String((user as any)?.role || '') === 'admin', [user]);
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setTimeout(() => checkAdmin(session.user.id), 0);
-      } else {
-        setIsAdmin(false);
-      }
-    });
-
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkAdmin(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    api.get('/auth/me')
+      .then((data: any) => setUser(data?.user || null))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const checkAdmin = async (userId: string) => {
-    const { data } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .maybeSingle();
-    setIsAdmin(!!data);
-  };
-
   const signUp = async (email: string, password: string, meta?: { first_name?: string; last_name?: string }) => {
-    return supabase.auth.signUp({
+    const data = await api.post('/auth/signup', {
       email,
       password,
-      options: { data: meta },
+      first_name: meta?.first_name,
+      last_name: meta?.last_name,
     });
+    setToken(data.token);
+    setUser(data.user);
+    return data;
   };
 
   const signIn = async (email: string, password: string) => {
-    return supabase.auth.signInWithPassword({ email, password });
+    const data = await api.post('/auth/login', { email, password });
+    setToken(data.token);
+    setUser(data.user);
+    return data;
   };
 
   const signInWithGoogle = async () => {
-    return supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/account`,
-      },
-    });
+    throw new Error('Google login will be added after Hostinger deploy (needs OAuth redirect URL).');
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    setToken(null);
+    setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, isAdmin, signUp, signIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, signUp, signIn, signInWithGoogle, signOut }}>
       {children}
     </AuthContext.Provider>
   );

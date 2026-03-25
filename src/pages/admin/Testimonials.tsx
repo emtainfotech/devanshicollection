@@ -1,13 +1,13 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { api } from '@/lib/api';
 
 const AdminTestimonials = () => {
   const queryClient = useQueryClient();
@@ -17,15 +17,7 @@ const AdminTestimonials = () => {
   const { data: testimonials, isLoading } = useQuery({
     queryKey: ['admin-testimonials'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('testimonials').select('*').order('sort_order');
-      if (error) {
-        if ((error as any).code === '42P01') {
-          toast.error("Missing table: public.testimonials. Run latest Supabase migration.");
-          return [];
-        }
-        throw error;
-      }
-      return data;
+      return await api.get('/admin/testimonials');
     },
   });
 
@@ -39,13 +31,8 @@ const AdminTestimonials = () => {
         sort_order: Number(payload.sort_order || 0),
         is_active: payload.is_active !== false,
       };
-      if (payload.id) {
-        const { error } = await supabase.from('testimonials').update(data).eq('id', payload.id);
-        if (error) throw error;
-      } else {
-        const { error } = await supabase.from('testimonials').insert(data);
-        if (error) throw error;
-      }
+      if (payload.id) return await api.put(`/admin/testimonials/${payload.id}`, data);
+      return await api.post('/admin/testimonials', data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-testimonials'] });
@@ -59,8 +46,7 @@ const AdminTestimonials = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase.from('testimonials').delete().eq('id', id);
-      if (error) throw error;
+      return await api.del(`/admin/testimonials/${id}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-testimonials'] });

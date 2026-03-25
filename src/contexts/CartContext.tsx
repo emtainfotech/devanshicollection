@@ -16,13 +16,14 @@ interface CartState {
   items: CartItem[];
   couponCode: string | null;
   couponDiscount: number;
+  couponType: 'percentage' | 'fixed';
 }
 
 type CartAction =
   | { type: 'ADD_ITEM'; payload: CartItem }
   | { type: 'REMOVE_ITEM'; payload: string }
   | { type: 'UPDATE_QUANTITY'; payload: { id: string; quantity: number } }
-  | { type: 'APPLY_COUPON'; payload: { code: string; discount: number } }
+  | { type: 'APPLY_COUPON'; payload: { code: string; discount: number; type: 'percentage' | 'fixed' } }
   | { type: 'REMOVE_COUPON' }
   | { type: 'CLEAR_CART' }
   | { type: 'LOAD_CART'; payload: CartState };
@@ -31,6 +32,7 @@ const initialState: CartState = {
   items: [],
   couponCode: null,
   couponDiscount: 0,
+  couponType: 'percentage',
 };
 
 function cartReducer(state: CartState, action: CartAction): CartState {
@@ -59,9 +61,9 @@ function cartReducer(state: CartState, action: CartAction): CartState {
         ),
       };
     case 'APPLY_COUPON':
-      return { ...state, couponCode: action.payload.code, couponDiscount: action.payload.discount };
+      return { ...state, couponCode: action.payload.code, couponDiscount: action.payload.discount, couponType: action.payload.type };
     case 'REMOVE_COUPON':
-      return { ...state, couponCode: null, couponDiscount: 0 };
+      return { ...state, couponCode: null, couponDiscount: 0, couponType: 'percentage' };
     case 'CLEAR_CART':
       return initialState;
     case 'LOAD_CART':
@@ -76,7 +78,7 @@ interface CartContextType {
   addItem: (item: CartItem) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
-  applyCoupon: (code: string, discount: number) => void;
+  applyCoupon: (code: string, discount: number, type: 'percentage' | 'fixed') => void;
   removeCoupon: () => void;
   clearCart: () => void;
   itemCount: number;
@@ -106,8 +108,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const removeItem = (id: string) => dispatch({ type: 'REMOVE_ITEM', payload: id });
   const updateQuantity = (id: string, quantity: number) =>
     dispatch({ type: 'UPDATE_QUANTITY', payload: { id, quantity } });
-  const applyCoupon = (code: string, discount: number) =>
-    dispatch({ type: 'APPLY_COUPON', payload: { code, discount } });
+  const applyCoupon = (code: string, discount: number, type: 'percentage' | 'fixed') =>
+    dispatch({ type: 'APPLY_COUPON', payload: { code, discount, type } });
   const removeCoupon = () => dispatch({ type: 'REMOVE_COUPON' });
   const clearCart = () => dispatch({ type: 'CLEAR_CART' });
 
@@ -116,7 +118,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     const discountedPrice = i.price * (1 - i.discount / 100);
     return sum + discountedPrice * i.quantity;
   }, 0);
-  const total = subtotal * (1 - state.couponDiscount / 100);
+  
+  const total = state.couponType === 'percentage' 
+    ? subtotal * (1 - state.couponDiscount / 100)
+    : Math.max(0, subtotal - state.couponDiscount);
 
   return (
     <CartContext.Provider

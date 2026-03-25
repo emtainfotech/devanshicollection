@@ -1,29 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
-import { supabase } from '@/integrations/supabase/client';
 import { Package, ShoppingCart, Users, DollarSign } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { formatINR, toINRValue } from '@/lib/pricing';
+import { api } from '@/lib/api';
 
 const AdminDashboard = () => {
   const { data: stats } = useQuery({
     queryKey: ['admin-stats'],
     queryFn: async () => {
-      const [products, orders, categories, coupons] = await Promise.all([
-        supabase.from('products').select('id', { count: 'exact', head: true }),
-        supabase.from('orders').select('id, total_amount'),
-        supabase.from('categories').select('id', { count: 'exact', head: true }),
-        supabase.from('coupons').select('id', { count: 'exact', head: true }),
-      ]);
-
-      const totalRevenue = (orders.data || []).reduce((sum, o) => sum + Number(o.total_amount), 0);
-
-      return {
-        products: products.count || 0,
-        orders: orders.data?.length || 0,
-        categories: categories.count || 0,
-        revenue: totalRevenue,
-      };
+      return await api.get('/admin/stats');
     },
   });
 
