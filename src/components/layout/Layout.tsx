@@ -1,6 +1,7 @@
 import Navbar from './Navbar';
 import Footer from './Footer';
 import WhatsAppChat from './WhatsAppChat';
+import ChatbotWidget from './ChatbotWidget';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,7 @@ const Layout = ({ children }: LayoutProps) => {
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />
+      <ChatbotWidget />
       <WhatsAppChat />
     </div>
   );

@@ -48,6 +48,7 @@ const AdminProducts = () => {
         name: product.name,
         slug: product.slug,
         description: product.description,
+        video_url: String(product.video_url || '').trim() || null,
         price: parseFloat(product.price),
         discount: parseInt(product.discount) || 0,
         sizes: product.sizes?.split(',').map((s: string) => s.trim()).filter(Boolean) || [],
@@ -91,7 +92,7 @@ const AdminProducts = () => {
   const openNew = () => {
     setEditingProduct({
       name: '', slug: '', description: '', price: '', discount: '0',
-      sizes: '', colors: '', stock: '0', category_id: '', images: '',
+      sizes: '', colors: '', stock: '0', category_id: '', images: '', video_url: '',
       is_featured: false, is_trending: false, is_active: true,
     });
     setDialogOpen(true);
@@ -106,6 +107,7 @@ const AdminProducts = () => {
       sizes: p.sizes?.join(', ') || '',
       colors: p.colors?.join(', ') || '',
       images: p.images?.join('\n') || '',
+      video_url: p.video_url || '',
     });
     setDialogOpen(true);
   };
@@ -237,6 +239,14 @@ const AdminProducts = () => {
                   className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
                   rows={4}
                   placeholder="https://...\nhttps://..."
+                />
+              </div>
+              <div>
+                <Label className="font-body text-xs">Product Video URL (optional)</Label>
+                <Input
+                  value={editingProduct.video_url || ''}
+                  onChange={(e) => setEditingProduct({ ...editingProduct, video_url: e.target.value })}
+                  placeholder="https://.../video.mp4"
                 />
               </div>
               <div>

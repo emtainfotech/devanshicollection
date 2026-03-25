@@ -328,6 +328,7 @@ export type Database = {
           slug: string
           stock: number | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           category_id?: string | null
@@ -349,6 +350,7 @@ export type Database = {
           slug: string
           stock?: number | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           category_id?: string | null
@@ -370,6 +372,7 @@ export type Database = {
           slug?: string
           stock?: number | null
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -457,6 +460,93 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chatbot_messages: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          page_url: string | null
+          question: string
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          page_url?: string | null
+          question: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          page_url?: string | null
+          question?: string
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      site_settings: {
+        Row: {
+          announcement_text: string | null
+          created_at: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          announcement_text?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          announcement_text?: string | null
+          created_at?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      testimonials: {
+        Row: {
+          city: string | null
+          comment: string
+          created_at: string
+          customer_name: string
+          id: string
+          is_active: boolean | null
+          rating: number
+          sort_order: number | null
+          updated_at: string
+        }
+        Insert: {
+          city?: string | null
+          comment: string
+          created_at?: string
+          customer_name: string
+          id?: string
+          is_active?: boolean | null
+          rating?: number
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Update: {
+          city?: string | null
+          comment?: string
+          created_at?: string
+          customer_name?: string
+          id?: string
+          is_active?: boolean | null
+          rating?: number
+          sort_order?: number | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       user_roles: {
         Row: {

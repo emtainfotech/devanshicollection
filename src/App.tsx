@@ -19,6 +19,10 @@ import AdminCategories from "./pages/admin/Categories";
 import AdminBanners from "./pages/admin/Banners";
 import AdminOrders from "./pages/admin/Orders";
 import AdminCoupons from "./pages/admin/Coupons";
+import AdminTestimonials from "./pages/admin/Testimonials";
+import AdminSettings from "./pages/admin/Settings";
+import AdminChatbotLogs from "./pages/admin/ChatbotLogs";
+import InfoPage from "./pages/InfoPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,8 +48,16 @@ const App = () => (
                 <Route path="/admin/products" element={<AdminProducts />} />
                 <Route path="/admin/categories" element={<AdminCategories />} />
                 <Route path="/admin/banners" element={<AdminBanners />} />
+                <Route path="/admin/testimonials" element={<AdminTestimonials />} />
+                <Route path="/admin/chatbot-logs" element={<AdminChatbotLogs />} />
                 <Route path="/admin/orders" element={<AdminOrders />} />
                 <Route path="/admin/coupons" element={<AdminCoupons />} />
+                <Route path="/admin/settings" element={<AdminSettings />} />
+                <Route path="/privacy" element={<InfoPage />} />
+                <Route path="/terms" element={<InfoPage />} />
+                <Route path="/shipping" element={<InfoPage />} />
+                <Route path="/faq" element={<InfoPage />} />
+                <Route path="/size-guide" element={<InfoPage />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

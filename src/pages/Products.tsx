@@ -60,9 +60,9 @@ const Products = () => {
           </select>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {filtersOpen && (
-            <motion.aside initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="w-56 flex-shrink-0 hidden md:block">
+            <motion.aside initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} className="w-full md:w-56 flex-shrink-0">
               <div className="mb-8">
                 <h3 className="font-body text-sm font-semibold mb-3">Categories</h3>
                 <div className="space-y-2">

@@ -1,6 +1,6 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { LayoutDashboard, Package, Grid3X3, Image, ShoppingCart, Tag, LogOut, ChevronLeft } from 'lucide-react';
+import { LayoutDashboard, Package, Grid3X3, Image, ShoppingCart, Tag, LogOut, ChevronLeft, MessageSquare, Settings, Bot } from 'lucide-react';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -12,8 +12,11 @@ const NAV_ITEMS = [
   { label: 'Products', href: '/admin/products', icon: Package },
   { label: 'Categories', href: '/admin/categories', icon: Grid3X3 },
   { label: 'Banners', href: '/admin/banners', icon: Image },
+  { label: 'Testimonials', href: '/admin/testimonials', icon: MessageSquare },
+  { label: 'Chatbot Activity', href: '/admin/chatbot-logs', icon: Bot },
   { label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
   { label: 'Coupons', href: '/admin/coupons', icon: Tag },
+  { label: 'Settings', href: '/admin/settings', icon: Settings },
 ];
 
 const AdminLayout = ({ children, title }: AdminLayoutProps) => {

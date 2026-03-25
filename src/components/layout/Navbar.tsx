@@ -4,7 +4,7 @@ import { ShoppingBag, Heart, User, Search, Menu, X } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { useCategories } from '@/hooks/useData';
+import { useCategories, useSiteSettings } from '@/hooks/useData';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import BrandLogo from './BrandLogo';
 
@@ -13,12 +13,14 @@ const Navbar = () => {
   const { count: wishlistCount } = useWishlist();
   const { user, isAdmin } = useAuth();
   const { data: categories } = useCategories();
+  const { data: settings } = useSiteSettings();
   const [searchOpen, setSearchOpen] = useState(false);
+  const announcement = (settings as any)?.announcement_text?.trim() || 'FREE SHIPPING ON ORDERS OVER ₹4,999 · USE CODE CHIC15';
 
   return (
     <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
       <div className="bg-primary text-primary-foreground text-center py-1.5 text-xs font-body tracking-wider">
-        FREE SHIPPING ON ORDERS OVER ₹4,999 · USE CODE <span className="font-semibold">CHIC15</span>
+        {announcement}
       </div>
 
       <nav className="container mx-auto px-4">
@@ -46,7 +48,7 @@ const Navbar = () => {
           <BrandLogo compact className="flex-shrink-0" />
 
           <div className="hidden lg:flex items-center gap-8">
-            {categories?.slice(0, 5).map((cat) => (
+            {categories?.map((cat) => (
               <Link key={cat.id} to={`/products?category=${cat.slug}`} className="text-sm font-body font-medium text-muted-foreground hover:text-foreground transition-colors relative group">
                 {cat.name}
                 <span className="absolute -bottom-1 left-0 w-0 h-0.5 bg-primary group-hover:w-full transition-all duration-300" />

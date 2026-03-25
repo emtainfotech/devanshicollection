@@ -1,11 +1,14 @@
 import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Layout from '@/components/layout/Layout';
 import ProductCard from '@/components/product/ProductCard';
-import { useProduct, useProducts } from '@/hooks/useData';
+import { useProduct, useProducts, useReviews, useTestimonials } from '@/hooks/useData';
 import { useCart, CartItem } from '@/contexts/CartContext';
 import { useWishlist } from '@/contexts/WishlistContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 import { Heart, ShoppingBag, Star, Minus, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatINR, toINRValue } from '@/lib/pricing';
@@ -24,14 +27,20 @@ const ProductDetail = () => {
   const { data: product, isLoading } = useProduct(slug || '');
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
 
   const [selectedImage, setSelectedImage] = useState(0);
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState('');
 
   const categorySlug = (product as any)?.categories?.slug;
   const { data: relatedProducts } = useProducts({ categorySlug, limit: 4 });
+  const { data: reviews } = useReviews(product?.id || '');
+  const { data: testimonials } = useTestimonials(3);
   const related = relatedProducts?.filter((p) => p.id !== product?.id).slice(0, 4) || [];
 
   if (isLoading) {
@@ -62,6 +71,7 @@ const ProductDetail = () => {
   const discountedPrice = price * (1 - (product.discount || 0) / 100);
   const wishlisted = isInWishlist(product.id);
   const images = (product.images || []).filter((img: string) => isValidImageSrc(img));
+  const videoUrl = String((product as any).video_url || '').trim();
 
   const handleAddToCart = () => {
     if (!selectedSize) { toast.error('Please select a size'); return; }
@@ -80,6 +90,53 @@ const ProductDetail = () => {
     addItem(item);
     toast.success('Added to bag');
   };
+
+  const submitReview = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('Please login to write a review');
+      if (!product?.id) throw new Error('Product not found');
+      const trimmedComment = reviewComment.trim();
+      if (!trimmedComment) throw new Error('Please write a comment');
+
+      const { error } = await supabase.from('reviews').insert({
+        user_id: user.id,
+        product_id: product.id,
+        rating: reviewRating,
+        comment: trimmedComment,
+        is_approved: true,
+      });
+      if (error) throw error;
+
+      const { data: allReviews, error: reviewsError } = await supabase
+        .from('reviews')
+        .select('rating')
+        .eq('product_id', product.id)
+        .eq('is_approved', true);
+      if (reviewsError) throw reviewsError;
+
+      const total = (allReviews || []).reduce((sum, r) => sum + Number(r.rating || 0), 0);
+      const count = allReviews?.length || 0;
+      const avg = count > 0 ? Number((total / count).toFixed(1)) : 0;
+
+      const { error: productError } = await supabase
+        .from('products')
+        .update({ rating: avg, review_count: count })
+        .eq('id', product.id);
+      if (productError) throw productError;
+    },
+    onSuccess: () => {
+      toast.success('Review submitted');
+      setReviewComment('');
+      setReviewRating(5);
+      queryClient.invalidateQueries({ queryKey: ['reviews', product?.id] });
+      queryClient.invalidateQueries({ queryKey: ['product', slug] });
+      queryClient.invalidateQueries({ queryKey: ['products'] });
+    },
+    onError: (error: any) => toast.error(error?.message || 'Unable to submit review'),
+  });
+
+  const averageRating = Number(product.rating || 0);
+  const reviewCount = Number(product.review_count || 0);
 
   return (
     <Layout>
@@ -114,17 +171,27 @@ const ProductDetail = () => {
                 ))}
               </div>
             )}
+            {videoUrl && (
+              <div className="mt-4">
+                <p className="font-body text-xs font-semibold mb-2">Product Video</p>
+                <video
+                  src={videoUrl}
+                  controls
+                  className="w-full rounded-lg border border-border bg-black/90"
+                />
+              </div>
+            )}
           </motion.div>
 
           <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }} className="flex flex-col">
             <h1 className="font-display text-3xl md:text-4xl font-semibold" style={{ lineHeight: '1.1' }}>{product.name}</h1>
 
-            {product.rating && Number(product.rating) > 0 && (
+            {averageRating > 0 && (
               <div className="flex items-center gap-2 mt-3">
                 <div className="flex gap-0.5">
-                  {[...Array(5)].map((_, i) => <Star key={i} className={`h-4 w-4 ${i < Math.round(Number(product.rating)) ? 'fill-gold text-gold' : 'text-border'}`} />)}
+                  {[...Array(5)].map((_, i) => <Star key={i} className={`h-4 w-4 ${i < Math.round(averageRating) ? 'fill-gold text-gold' : 'text-border'}`} />)}
                 </div>
-                <span className="text-sm font-body text-muted-foreground">{product.rating} · {product.review_count} reviews</span>
+                <span className="text-sm font-body text-muted-foreground">{averageRating} · {reviewCount} reviews</span>
               </div>
             )}
 
@@ -195,6 +262,91 @@ const ProductDetail = () => {
             <h2 className="font-display text-3xl font-semibold mb-8" style={{ lineHeight: '1.1' }}>You May Also Like</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
               {related.map((p: any) => <ProductCard key={p.id} product={p} />)}
+            </div>
+          </section>
+        )}
+
+        <section className="mt-12 mb-10">
+          <div className="flex items-end justify-between gap-4 mb-6">
+            <div>
+              <h2 className="font-display text-2xl md:text-3xl font-semibold">Ratings & Reviews</h2>
+              <p className="font-body text-sm text-muted-foreground mt-1">
+                {averageRating > 0 ? `${averageRating} average from ${reviewCount} review${reviewCount === 1 ? '' : 's'}` : 'No reviews yet'}
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-border p-4 md:p-5 mb-6">
+            <h3 className="font-body text-sm font-semibold mb-3">Write a review</h3>
+            <div className="flex items-center gap-1 mb-3">
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setReviewRating(value)}
+                  className="p-1"
+                  aria-label={`Rate ${value} stars`}
+                >
+                  <Star className={`h-5 w-5 ${value <= reviewRating ? 'fill-gold text-gold' : 'text-border'}`} />
+                </button>
+              ))}
+            </div>
+            <textarea
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={4}
+              placeholder="Share your experience with this product..."
+              className="w-full px-3 py-2 text-sm border border-input rounded-md bg-background"
+            />
+            <div className="mt-3">
+              <button
+                type="button"
+                onClick={() => submitReview.mutate()}
+                disabled={!user || submitReview.isPending}
+                className="btn-primary-gradient text-primary-foreground px-4 py-2 rounded-md text-sm font-body disabled:opacity-50"
+              >
+                {!user ? 'Login to review' : submitReview.isPending ? 'Submitting...' : 'Submit Review'}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {(reviews || []).map((review: any) => (
+              <article key={review.id} className="rounded-lg border border-border p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="font-body text-sm font-medium">
+                    {review.profiles?.first_name || 'Verified'} {review.profiles?.last_name || 'Customer'}
+                  </p>
+                  <div className="flex items-center gap-0.5">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className={`h-3.5 w-3.5 ${i < Number(review.rating || 0) ? 'fill-gold text-gold' : 'text-border'}`} />
+                    ))}
+                  </div>
+                </div>
+                {review.comment && <p className="font-body text-sm text-muted-foreground mt-2">{review.comment}</p>}
+              </article>
+            ))}
+            {(!reviews || reviews.length === 0) && (
+              <p className="font-body text-sm text-muted-foreground">Be the first to review this product.</p>
+            )}
+          </div>
+        </section>
+
+        {testimonials && testimonials.length > 0 && (
+          <section className="mt-12 mb-12">
+            <h2 className="font-display text-2xl md:text-3xl font-semibold mb-6">Customer Testimonials</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {testimonials.map((t: any) => (
+                <article key={t.id} className="rounded-lg border border-border p-4">
+                  <div className="flex gap-0.5 mb-2">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className={`h-3.5 w-3.5 ${i < Number(t.rating || 0) ? 'fill-gold text-gold' : 'text-border'}`} />
+                    ))}
+                  </div>
+                  <p className="font-body text-sm text-muted-foreground">"{t.comment}"</p>
+                  <p className="font-body text-sm font-medium mt-3">{t.customer_name}</p>
+                </article>
+              ))}
             </div>
           </section>
         )}

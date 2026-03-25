@@ -106,3 +106,41 @@ export function useReviews(productId: string) {
     enabled: !!productId,
   });
 }
+
+export function useTestimonials(limit?: number) {
+  return useQuery({
+    queryKey: ['testimonials', limit],
+    queryFn: async () => {
+      let query = supabase
+        .from('testimonials')
+        .select('*')
+        .eq('is_active', true)
+        .order('sort_order');
+      if (limit) query = query.limit(limit);
+      const { data, error } = await query;
+      if (error) {
+        if ((error as any).code === '42P01') return [];
+        throw error;
+      }
+      return data;
+    },
+  });
+}
+
+export function useSiteSettings() {
+  return useQuery({
+    queryKey: ['site-settings'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('site_settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        if ((error as any).code === '42P01') return null;
+        throw error;
+      }
+      return data;
+    },
+  });
+}
