@@ -621,7 +621,7 @@ app.post('/api/admin/banners', authRequired, adminRequired, async (req, res) => 
   const id = (await query('SELECT UUID() as id'))[0].id;
   await query(
     'INSERT INTO banners (id, title, subtitle, image_url, link, position, is_active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-    [id, b.title, b.subtitle || null, b.image_url, b.link || null, b.position || 'hero', b.is_active === false ? 0 : 1, Number(b.sort_order || 0)]
+    [id, b.title || null, b.subtitle || null, b.image_url, b.link || null, b.position || 'hero', b.is_active === false ? 0 : 1, Number(b.sort_order || 0)]
   );
   res.json({ id });
 });
@@ -630,7 +630,7 @@ app.put('/api/admin/banners/:id', authRequired, adminRequired, async (req, res) 
   const b = req.body || {};
   await query(
     'UPDATE banners SET title=?, subtitle=?, image_url=?, link=?, position=?, is_active=?, sort_order=? WHERE id=?',
-    [b.title, b.subtitle || null, b.image_url, b.link || null, b.position || 'hero', b.is_active === false ? 0 : 1, Number(b.sort_order || 0), req.params.id]
+    [b.title || null, b.subtitle || null, b.image_url, b.link || null, b.position || 'hero', b.is_active === false ? 0 : 1, Number(b.sort_order || 0), req.params.id]
   );
   res.json({ ok: true });
 });

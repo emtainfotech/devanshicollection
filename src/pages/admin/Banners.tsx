@@ -26,7 +26,7 @@ const AdminBanners = () => {
 
   const saveMutation = useMutation({
     mutationFn: async (b: any) => {
-      const payload = { title: b.title, subtitle: b.subtitle || null, image_url: b.image_url, link: b.link || null, position: b.position, is_active: b.is_active, sort_order: parseInt(b.sort_order) || 0 };
+      const payload = { title: b.title || null, subtitle: b.subtitle || null, image_url: b.image_url, link: b.link || null, position: b.position, is_active: b.is_active, sort_order: parseInt(b.sort_order) || 0 };
       if (b.id) {
         await api.put(`/admin/banners/${b.id}`, payload);
       } else {
@@ -46,7 +46,7 @@ const AdminBanners = () => {
     if (!banners) return [];
     return banners.filter((b: any) => {
       const searchLower = search.toLowerCase();
-      const titleMatch = b.title.toLowerCase().includes(searchLower);
+      const titleMatch = (b.title || '').toLowerCase().includes(searchLower);
       const subtitleMatch = (b.subtitle || '').toLowerCase().includes(searchLower);
       const positionMatch = filters.position === 'all' || b.position === filters.position;
       const statusMatch = filters.status === 'all' || (b.is_active ? 'active' : 'inactive') === filters.status;
@@ -104,10 +104,10 @@ const AdminBanners = () => {
       <div className="grid gap-4">
         {filteredBanners?.map((b) => (
           <div key={b.id} className="bg-background rounded-lg border border-border p-4 flex gap-4 items-center">
-            <img src={b.image_url} alt={b.title} className="w-32 h-20 rounded object-cover" />
+            <img src={b.image_url} alt={b.title || 'Banner Image'} className="w-32 h-20 rounded object-cover" />
             <div className="flex-1">
-              <h3 className="font-body font-medium text-sm">{b.title}</h3>
-              <p className="text-xs text-muted-foreground">{b.subtitle}</p>
+              <h3 className="font-body font-medium text-sm">{b.title || 'Untitled Banner'}</h3>
+              <p className="text-xs text-muted-foreground">{b.subtitle || 'No subtitle'}</p>
               <div className="flex gap-2 mt-1">
                 <span className="text-xs bg-secondary px-2 py-0.5 rounded">{b.position}</span>
                 <span className={`text-xs px-2 py-0.5 rounded ${b.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -128,8 +128,8 @@ const AdminBanners = () => {
           <DialogHeader><DialogTitle className="font-display text-xl">{editing?.id ? 'Edit' : 'New'} Banner</DialogTitle></DialogHeader>
           {editing && (
             <form onSubmit={(e) => { e.preventDefault(); saveMutation.mutate(editing); }} className="space-y-4">
-              <div><Label className="font-body text-xs">Title</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} required /></div>
-              <div><Label className="font-body text-xs">Subtitle</Label><Input value={editing.subtitle || ''} onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })} /></div>
+              <div><Label className="font-body text-xs">Title (Optional)</Label><Input value={editing.title || ''} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
+              <div><Label className="font-body text-xs">Subtitle (Optional)</Label><Input value={editing.subtitle || ''} onChange={(e) => setEditing({ ...editing, subtitle: e.target.value })} /></div>
               <div>
                 <Label className="font-body text-xs">Image URL</Label>
                 <Input value={editing.image_url} onChange={(e) => setEditing({ ...editing, image_url: e.target.value })} required />
