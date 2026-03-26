@@ -24,18 +24,23 @@ passport.use(new GoogleStrategy({
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
-      const email = profile.emails[0].value;
+      const email = profile.emails?.[0]?.value;
+      if (!email) return done(new Error('No email found in Google profile'), null);
+
       let user = await query('SELECT * FROM users WHERE email = ?', [email]);
       if (user.length === 0) {
         const resId = await query('SELECT UUID() as id');
         const userId = resId[0].id;
+        const firstName = profile.name?.givenName || profile.displayName || 'Google';
+        const lastName = profile.name?.familyName || '';
+
         await query(
-          'INSERT INTO users (id, email, first_name, last_name, created_at) VALUES (?, ?, ?, ?, NOW())',
-          [userId, email, profile.name.givenName, profile.name.familyName]
+          'INSERT INTO users (id, email, created_at) VALUES (?, ?, NOW())',
+          [userId, email]
         );
         await query(
           'INSERT INTO profiles (user_id, first_name, last_name, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
-          [userId, profile.name.givenName, profile.name.familyName]
+          [userId, firstName, lastName]
         );
         await query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [userId, 'user']);
         user = await query('SELECT * FROM users WHERE id = ?', [userId]);
