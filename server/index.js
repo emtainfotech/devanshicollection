@@ -14,6 +14,7 @@ import { sendMail } from './email.js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 import passport from 'passport';
+import session from 'express-session';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
 passport.use(new GoogleStrategy({
@@ -60,7 +61,18 @@ passport.deserializeUser(async (id, done) => {
 });
 
 const app = express();
-const APP_URL = 'https://devanshicollection.com';
+const APP_URL = process.env.APP_URL || 'https://devanshicollection.com';
+
+app.use(session({
+  secret: process.env.JWT_SECRET || 'devanshi-secret',
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: process.env.NODE_ENV === 'production' }
+}));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '25mb' }));
 
@@ -138,10 +150,12 @@ app.post('/api/auth/login', async (req, res) => {
 
 app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
 
-app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), (req, res) => {
+app.get('/api/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login', session: false }), 
+  (req, res) => {
     const user = req.user;
-    const token = signToken({ id: user.id, email: user.email, role: user.role });
-    res.redirect(`${process.env.APP_URL}/auth/callback?token=${token}`);
+    const token = signToken({ id: user.id, email: user.email, role: 'user' });
+    res.redirect(`${APP_URL}/auth/callback?token=${token}`);
   }
 );
 
