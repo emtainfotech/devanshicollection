@@ -339,6 +339,40 @@ app.post('/api/reviews', authRequired, async (req, res) => {
   res.json({ ok: true });
 });
 
+// Order Requests (Return/Refund)
+app.post('/api/order-requests', authRequired, async (req, res) => {
+  const { order_id, type, reason, details, images } = req.body || {};
+  if (!order_id || !type || !reason) return res.status(400).json({ error: 'Missing order_id, type, or reason' });
+
+  // Check if order exists and belongs to user
+  const orders = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [order_id, req.user.id]);
+  const order = orders?.[0];
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  // Check 5-day return window if delivered
+  if (order.status === 'delivered' && order.delivered_at) {
+    const deliveredDate = new Date(order.delivered_at);
+    const now = new Date();
+    const diffDays = Math.ceil((now.getTime() - deliveredDate.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays > 5) return res.status(400).json({ error: 'Return/Refund window (5 days) has expired' });
+  } else if (order.status !== 'delivered' && type === 'return') {
+    return res.status(400).json({ error: 'Cannot return an undelivered order' });
+  }
+
+  const id = (await query('SELECT UUID() as id'))[0].id;
+  await query(
+    'INSERT INTO order_requests (id, order_id, user_id, type, reason, details, images) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, order_id, req.user.id, type, reason, details || null, JSON.stringify(images || [])]
+  );
+
+  res.json({ id });
+});
+
+app.get('/api/my-order-requests', authRequired, async (req, res) => {
+  const rows = await query('SELECT * FROM order_requests WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+  res.json(rows.map(r => ({ ...r, images: safeJson(r.images) })));
+});
+
 // Chatbot logs
 app.post('/api/chatbot', async (req, res) => {
   const { question, answer, page_url, user_agent, user_id } = req.body || {};
@@ -349,6 +383,19 @@ app.post('/api/chatbot', async (req, res) => {
     [id, user_id || null, question, answer, page_url || null, user_agent || null]
   );
   res.json({ ok: true });
+});
+
+// Customer Queries (Support)
+app.post('/api/customer-queries', async (req, res) => {
+  const { user_id, name, email, phone, subject, message } = req.body || {};
+  if (!name || !email || !subject || !message) return res.status(400).json({ error: 'Missing required fields' });
+  
+  const id = (await query('SELECT UUID() as id'))[0].id;
+  await query(
+    'INSERT INTO customer_queries (id, user_id, name, email, phone, subject, message) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [id, user_id || null, name, email, phone || null, subject, message]
+  );
+  res.json({ id, ok: true });
 });
 
 // Blog endpoints (public)
@@ -795,6 +842,46 @@ app.patch('/api/admin/orders/:id', authRequired, adminRequired, async (req, res)
     await sendMail(order.email, `Order #${order.id} Status Update`, emailHtml);
   }
 
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/order-requests', authRequired, adminRequired, async (_req, res) => {
+  const rows = await query(`
+    SELECT r.*, o.total_amount, u.email as customer_email, p.first_name, p.last_name
+    FROM order_requests r
+    JOIN orders o ON r.order_id = o.id
+    JOIN users u ON r.user_id = u.id
+    JOIN profiles p ON r.user_id = p.user_id
+    ORDER BY r.created_at DESC
+  `);
+  res.json(rows.map(r => ({ ...r, images: safeJson(r.images) })));
+});
+
+app.patch('/api/admin/order-requests/:id', authRequired, adminRequired, async (req, res) => {
+  const { status, admin_remarks } = req.body || {};
+  if (!status) return res.status(400).json({ error: 'Status required' });
+
+  await query('UPDATE order_requests SET status = ?, admin_remarks = ?, updated_at = NOW() WHERE id = ?', [status, admin_remarks || null, req.params.id]);
+
+  // If approved return/refund, maybe update order status
+  const requests = await query('SELECT * FROM order_requests WHERE id = ?', [req.params.id]);
+  const request = requests?.[0];
+  if (request && status === 'completed') {
+    const orderStatus = request.type === 'return' ? 'returned' : 'refunded';
+    await query('UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?', [orderStatus, request.order_id]);
+  }
+
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/customer-queries', authRequired, adminRequired, async (_req, res) => {
+  const rows = await query('SELECT * FROM customer_queries ORDER BY created_at DESC');
+  res.json(rows);
+});
+
+app.patch('/api/admin/customer-queries/:id', authRequired, adminRequired, async (req, res) => {
+  const { status, admin_remarks } = req.body || {};
+  await query('UPDATE customer_queries SET status = ?, admin_remarks = ?, updated_at = NOW() WHERE id = ?', [status, admin_remarks || null, req.params.id]);
   res.json({ ok: true });
 });
 

@@ -17,12 +17,15 @@ import Checkout from "./pages/Checkout";
 import PaymentCallback from "./pages/PaymentCallback";
 import Wishlist from "./pages/Wishlist";
 import Account from "./pages/Account";
+import CustomerCare from "./pages/CustomerCare";
 import AuthCallback from "./pages/AuthCallback";
 import AdminDashboard from "./pages/admin/Dashboard";
 import AdminProducts from "./pages/admin/Products";
 import AdminCategories from "./pages/admin/Categories";
 import AdminBanners from "./pages/admin/Banners";
 import AdminOrders from "./pages/admin/Orders";
+import AdminOrderRequests from "./pages/admin/OrderRequests";
+import AdminCustomerCare from "./pages/admin/CustomerCare";
 import AdminTransactions from "./pages/admin/Transactions";
 import AdminComplaints from "./pages/admin/Complaints";
 import AdminCoupons from "./pages/admin/Coupons";
@@ -69,6 +72,7 @@ const App = () => {
                   <Route path="/payment/callback" element={<PaymentCallback />} />
                   <Route path="/wishlist" element={<Wishlist />} />
                   <Route path="/account" element={<Account />} />
+                  <Route path="/customer-care" element={<CustomerCare />} />
                   <Route path="/auth/callback" element={<AuthCallback />} />
                   <Route path="/admin" element={<AdminDashboard />} />
                   <Route path="/admin/products" element={<AdminProducts />} />
@@ -78,6 +82,8 @@ const App = () => {
                   <Route path="/admin/chatbot-logs" element={<AdminChatbotLogs />} />
                   <Route path="/admin/blogs" element={<AdminBlogs />} />
                   <Route path="/admin/orders" element={<AdminOrders />} />
+                  <Route path="/admin/order-requests" element={<AdminOrderRequests />} />
+                  <Route path="/admin/customer-care" element={<AdminCustomerCare />} />
                   <Route path="/admin/transactions" element={<AdminTransactions />} />
                   <Route path="/admin/complaints" element={<AdminComplaints />} />
                   <Route path="/admin/coupons" element={<AdminCoupons />} />

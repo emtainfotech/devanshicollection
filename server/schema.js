@@ -285,5 +285,41 @@ export async function ensureSchema() {
       INDEX idx_addresses_user (user_id)
     )
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS order_requests (
+      id CHAR(36) PRIMARY KEY,
+      order_id CHAR(36) NOT NULL,
+      user_id CHAR(36) NOT NULL,
+      type ENUM('return', 'refund') NOT NULL,
+      reason TEXT NOT NULL,
+      details TEXT,
+      images JSON,
+      status ENUM('pending', 'approved', 'rejected', 'completed') DEFAULT 'pending',
+      admin_remarks TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_order_requests_order (order_id),
+      INDEX idx_order_requests_user (user_id)
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS customer_queries (
+      id CHAR(36) PRIMARY KEY,
+      user_id CHAR(36),
+      name VARCHAR(255) NOT NULL,
+      email VARCHAR(255) NOT NULL,
+      phone VARCHAR(20),
+      subject VARCHAR(255) NOT NULL,
+      message TEXT NOT NULL,
+      status ENUM('pending', 'in_progress', 'resolved', 'closed') DEFAULT 'pending',
+      admin_remarks TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_queries_user (user_id),
+      INDEX idx_queries_status (status)
+    )
+  `);
 }
 

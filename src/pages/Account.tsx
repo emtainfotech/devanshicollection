@@ -7,15 +7,110 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock, AlertCircle } from 'lucide-react';
+import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock, AlertCircle, RotateCcw } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatINR, toINRValue } from '@/lib/pricing';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddressManager from '@/components/account/AddressManager';
 import { Button } from '@/components/ui/button';
+
+const ReturnRequestDialog = ({ orderId, status, deliveredAt }: { orderId: string, status: string, deliveredAt?: string }) => {
+  const [type, setType] = useState<'return' | 'refund'>('return');
+  const [reason, setReason] = useState('');
+  const [details, setDetails] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  // Check 5-day window
+  const canRequest = () => {
+    if (status !== 'delivered' || !deliveredAt) return false;
+    const deliveredDate = new Date(deliveredAt);
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - deliveredDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays <= 5;
+  };
+
+  if (!canRequest()) return null;
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.post('/order-requests', {
+        order_id: orderId,
+        type,
+        reason,
+        details,
+      });
+      toast.success('Request submitted successfully. Our team will contact you.');
+      setOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to submit request');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-md text-xs font-medium hover:bg-primary hover:text-primary-foreground transition-all active:scale-95">
+          <RotateCcw className="h-3.5 w-3.5" /> Return / Refund
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Request Return or Refund</DialogTitle>
+          <p className="text-xs text-muted-foreground">Please provide the details for your return or refund request.</p>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label>Request Type</Label>
+            <Select value={type} onValueChange={(v: any) => setType(v)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="return">Return Product</SelectItem>
+                <SelectItem value="refund">Request Refund</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason</Label>
+            <Select value={reason} onValueChange={setReason}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select reason" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Size/Fit issue">Size/Fit issue</SelectItem>
+                <SelectItem value="Damaged product">Damaged product</SelectItem>
+                <SelectItem value="Different from image">Different from image</SelectItem>
+                <SelectItem value="Quality not as expected">Quality not as expected</SelectItem>
+                <SelectItem value="Wrong item received">Wrong item received</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="details">Additional Details</Label>
+            <Textarea id="details" value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Please provide more details..." required />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={isSubmitting} className="w-full">
+              {isSubmitting ? 'Submitting...' : 'Submit Request'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const ComplaintDialog = ({ orderId }: { orderId: string }) => {
   const [utr, setUtr] = useState('');
@@ -56,6 +151,7 @@ const ComplaintDialog = ({ orderId }: { orderId: string }) => {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Raise Payment Complaint</DialogTitle>
+          <p className="text-xs text-muted-foreground">If you have encountered any payment issues, please provide the UTR and a description.</p>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">
           <div className="space-y-2">
@@ -268,12 +364,15 @@ const Account = () => {
                                       </button>
                                     )}
                                     {order.status === 'delivered' && (
-                                      <button 
-                                        onClick={() => window.open(`${api.BASE}/invoice/${order.id}`, '_blank')}
-                                        className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-xs font-medium hover:bg-secondary/90 transition-colors"
-                                      >
-                                        <FileText className="h-3.5 w-3.5" /> Download Invoice
-                                      </button>
+                                      <div className="flex flex-col gap-2">
+                                        <button 
+                                          onClick={() => window.open(`${api.BASE}/invoice/${order.id}`, '_blank')}
+                                          className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-xs font-medium hover:bg-secondary/90 transition-colors"
+                                        >
+                                          <FileText className="h-3.5 w-3.5" /> Download Invoice
+                                        </button>
+                                        <ReturnRequestDialog orderId={order.id} status={order.status} deliveredAt={order.delivered_at} />
+                                      </div>
                                     )}
                                   </div>
                                 </div>
