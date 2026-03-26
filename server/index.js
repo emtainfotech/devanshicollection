@@ -200,8 +200,8 @@ app.post('/api/orders', authRequired, async (req, res) => {
   const orderId = orderIdRows[0].id;
 
   await query(
-    `INSERT INTO orders (id, user_id, status, payment_status, payment_method, subtotal, discount_amount, shipping_amount, tax_amount, total_amount, shipping_address, coupon_code)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO orders (id, user_id, status, payment_status, payment_method, subtotal, discount_amount, shipping_amount, tax_amount, total_amount, shipping_address, coupon_code, created_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
     [
       orderId,
       req.user.id,

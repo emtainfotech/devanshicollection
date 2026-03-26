@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 const AdminChatbotLogs = () => {
   const { data: logs, isLoading } = useQuery({
@@ -30,7 +31,7 @@ const AdminChatbotLogs = () => {
                 <td className="p-3 max-w-xs">{row.question}</td>
                 <td className="p-3 max-w-xs text-muted-foreground">{row.answer}</td>
                 <td className="p-3 text-xs text-muted-foreground">{row.page_url || '—'}</td>
-                <td className="p-3 text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString()}</td>
+                <td className="p-3 text-xs text-muted-foreground">{formatDate(row.created_at)}</td>
               </tr>
             ))}
             {(!logs || logs.length === 0) && !isLoading && (

@@ -3,6 +3,7 @@ import AdminLayout from '@/components/admin/AdminLayout';
 import { toast } from 'sonner';
 import { formatINR, toINRValue } from '@/lib/pricing';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { ChevronDown, ChevronUp, Package, Truck, ExternalLink, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
@@ -104,7 +105,7 @@ const AdminOrders = () => {
                   </td>
                   <td className="p-3 font-mono text-xs">#{o.id.slice(0, 8)}</td>
                   <td className="p-3">
-                    <p className="font-medium">{(o as any).shipping_address?.full_name || '—'}</p>
+                    <p className="font-medium">{o.customer_first_name ? `${o.customer_first_name} ${o.customer_last_name || ''}`.trim() : (o.shipping_address?.full_name || '—')}</p>
                     <p className="text-xs text-muted-foreground">{(o as any).customer_email}</p>
                   </td>
                   <td className="p-3 tabular-nums font-semibold">{formatINR(toINRValue(Number(o.total_amount)))}</td>
@@ -132,7 +133,7 @@ const AdminOrders = () => {
                       {PAYMENT_OPTIONS.map((s) => <option key={s} value={s}>{s.toUpperCase()}</option>)}
                     </select>
                   </td>
-                  <td className="p-3 text-muted-foreground text-xs">{new Date(o.created_at).toLocaleString()}</td>
+                  <td className="p-3 text-muted-foreground text-xs">{formatDate(o.created_at)}</td>
                 </tr>
                 {expandedOrders.includes(o.id) && (
                   <tr className="bg-secondary/20 border-b border-border">
@@ -200,8 +201,8 @@ const AdminOrders = () => {
                               </div>
                               
                               <div className="flex flex-wrap gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
-                                {o.shipped_at && <div>Shipped: {new Date(o.shipped_at).toLocaleString()}</div>}
-                                {o.delivered_at && <div>Delivered: {new Date(o.delivered_at).toLocaleString()}</div>}
+                                {o.shipped_at && <div>Shipped: {formatDate(o.shipped_at)}</div>}
+                                {o.delivered_at && <div>Delivered: {formatDate(o.delivered_at)}</div>}
                               </div>
                             </div>
                           </div>

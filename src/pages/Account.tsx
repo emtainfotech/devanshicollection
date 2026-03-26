@@ -11,6 +11,7 @@ import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, 
 import { useQuery } from '@tanstack/react-query';
 import { formatINR, toINRValue } from '@/lib/pricing';
 import { api } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 
 const Account = () => {
   const { user, loading, signIn, signInWithGoogle, signUp, signOut, isAdmin } = useAuth();
@@ -54,7 +55,7 @@ const Account = () => {
               </div>
               <div>
                 <p className="font-body font-medium">{user.email}</p>
-                <p className="font-body text-xs text-muted-foreground">Member since {new Date(user.created_at).toLocaleDateString()}</p>
+                <p className="font-body text-xs text-muted-foreground">Member since {formatDate(user.created_at)}</p>
               </div>
             </div>
           </div>
@@ -146,7 +147,7 @@ const Account = () => {
                                     {order.shipped_at && (
                                       <div>
                                         <p className="text-muted-foreground mb-1">Shipped On</p>
-                                        <p className="font-bold">{new Date(order.shipped_at).toLocaleDateString()}</p>
+                                        <p className="font-bold">{formatDate(order.shipped_at)}</p>
                                       </div>
                                     )}
                                   </div>
@@ -175,7 +176,7 @@ const Account = () => {
                               {/* Summary & Invoice */}
                               <div className="pt-4 border-t border-border flex items-end justify-between gap-4">
                                 <div className="space-y-1 text-xs font-body text-muted-foreground">
-                                  <p>Placed on {new Date(order.created_at).toLocaleString()}</p>
+                                  <p>Placed on {formatDate(order.created_at)}</p>
                                   <p>Payment: <span className="font-bold uppercase text-primary">{order.payment_status}</span> via {order.payment_method}</p>
                                 </div>
                                 {order.status === 'delivered' && (
