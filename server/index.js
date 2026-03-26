@@ -11,6 +11,8 @@ import { ensureSchema } from './schema.js';
 import { query } from './db.js';
 import { authRequired, adminRequired, signToken, verifyPassword } from './auth.js';
 import { sendMail } from './email.js';
+import crypto from 'crypto';
+import fetch from 'node-fetch';
 
 const app = express();
 const APP_URL = 'https://devanshicollection.com';
@@ -334,6 +336,168 @@ app.patch('/api/admin/blogs/:id', authRequired, adminRequired, async (req, res) 
 app.delete('/api/admin/blogs/:id', authRequired, adminRequired, async (req, res) => {
   await query('DELETE FROM blogs WHERE id = ?', [req.params.id]);
   res.json({ ok: true });
+});
+
+app.post('/api/pay', authRequired, async (req, res) => {
+  const { order_id } = req.body;
+  if (!order_id) return res.status(400).json({ error: 'Order ID is required' });
+
+  const [order] = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [order_id, req.user.id]);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+
+  const merchantTransactionId = `MT_${order.id.slice(0, 8)}_${Date.now()}`;
+  const transactionId = (await query('SELECT UUID() as id'))[0].id;
+
+  await query(
+    `INSERT INTO transactions (id, order_id, user_id, provider_transaction_id, amount, currency)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [transactionId, order.id, req.user.id, merchantTransactionId, order.total_amount, 'INR']
+  );
+
+  const payload = {
+    merchantId: process.env.PHONEPE_MERCHANT_ID,
+    merchantTransactionId,
+    merchantUserId: req.user.id,
+    amount: order.total_amount * 100, // Amount in paise
+    redirectUrl: `${process.env.APP_URL}/payment/callback`,
+    redirectMode: 'POST',
+    callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
+    paymentInstrument: {
+      type: 'PAY_PAGE',
+    },
+  };
+
+  const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
+  const checksum = crypto.createHash('sha256').update(base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
+
+  try {
+    const response = await fetch(`${process.env.PHONEPE_HOST}/pg/v1/pay`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-VERIFY': checksum,
+      },
+      body: JSON.stringify({ request: base64Payload }),
+    });
+
+    const data = await response.json();
+
+    if (data.success) {
+      res.json({ redirectUrl: data.data.instrumentResponse.redirectInfo.url });
+    } else {
+      res.status(500).json({ error: data.message });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PhonePe Callback Handler
+app.post('/api/payment/callback', async (req, res) => {
+  const { response } = req.body;
+  const xVerify = req.headers['x-verify'];
+
+  if (!response || !xVerify) {
+    return res.status(400).json({ error: 'Missing response or checksum' });
+  }
+
+  // Verify checksum
+  const checksum = crypto.createHash('sha256').update(response + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
+  if (checksum !== xVerify) {
+    return res.status(401).json({ error: 'Invalid checksum' });
+  }
+
+  const decodedResponse = JSON.parse(Buffer.from(response, 'base64').toString('utf-8'));
+  const { success, code, data } = decodedResponse;
+
+  if (success && code === 'PAYMENT_SUCCESS') {
+    const { merchantTransactionId, transactionId: providerTransactionId, amount, paymentInstrument } = data;
+    
+    // Find transaction
+    const [transaction] = await query('SELECT * FROM transactions WHERE provider_transaction_id = ?', [merchantTransactionId]);
+    if (transaction) {
+      // Update transaction
+      await query(
+        `UPDATE transactions SET status = 'success', provider_transaction_id = ?, payment_method_type = ?, payment_method_provider = ?, provider_response = ? WHERE id = ?`,
+        [providerTransactionId, paymentInstrument.type, paymentInstrument.cardType || paymentInstrument.bankId || null, JSON.stringify(decodedResponse), transaction.id]
+      );
+
+      // Update order
+      await query(
+        `UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = NOW() WHERE id = ?`,
+        ['phonepe', transaction.order_id]
+      );
+
+      // Send confirmation email
+      const [order] = await query('SELECT o.*, u.email, p.first_name FROM orders o JOIN users u ON o.user_id = u.id JOIN profiles p ON o.user_id = p.user_id WHERE o.id = ?', [transaction.order_id]);
+      if (order) {
+        await sendMail(order.email, `Order Confirmation - #${order.id.slice(0, 8)}`, `<h1>Payment Successful!</h1><p>Hi ${order.first_name}, your payment for order #${order.id.slice(0, 8)} was successful. We're processing your order now.</p>`);
+      }
+    }
+  } else {
+    // Handle failure
+    const { merchantTransactionId } = data;
+    await query(`UPDATE transactions SET status = 'failed', provider_response = ? WHERE provider_transaction_id = ?`, [JSON.stringify(decodedResponse), merchantTransactionId]);
+  }
+
+  res.status(200).send('OK');
+});
+
+// Verify payment status (polling or redirect)
+app.get('/api/payment/status/:orderId', authRequired, async (req, res) => {
+  const { orderId } = req.params;
+  const [order] = await query('SELECT payment_status FROM orders WHERE id = ? AND user_id = ?', [orderId, req.user.id]);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  res.json({ status: order.payment_status });
+});
+
+// Complaints API
+app.post('/api/complaints', authRequired, async (req, res) => {
+  const { order_id, utr_number, transaction_id, complaint_reason, image_url } = req.body;
+  if (!order_id || !complaint_reason) return res.status(400).json({ error: 'Order ID and reason are required' });
+
+  const id = (await query('SELECT UUID() as id'))[0].id;
+  await query(
+    `INSERT INTO payment_complaints (id, order_id, user_id, utr_number, transaction_id, complaint_reason, image_url, status)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+    [id, order_id, req.user.id, utr_number || null, transaction_id || null, complaint_reason, image_url || null]
+  );
+
+  res.json({ id, ok: true });
+});
+
+app.get('/api/my-complaints', authRequired, async (req, res) => {
+  const rows = await query('SELECT * FROM payment_complaints WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+  res.json(rows);
+});
+
+// Admin Complaints & Transactions
+app.get('/api/admin/complaints', authRequired, adminRequired, async (_req, res) => {
+  const rows = await query(`
+    SELECT c.*, o.total_amount, u.email as customer_email
+    FROM payment_complaints c
+    JOIN orders o ON c.order_id = o.id
+    JOIN users u ON c.user_id = u.id
+    ORDER BY c.created_at DESC
+  `);
+  res.json(rows);
+});
+
+app.patch('/api/admin/complaints/:id', authRequired, adminRequired, async (req, res) => {
+  const { status, admin_remarks } = req.body;
+  await query('UPDATE payment_complaints SET status = ?, admin_remarks = ?, updated_at = NOW() WHERE id = ?', [status, admin_remarks, req.params.id]);
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/transactions', authRequired, adminRequired, async (_req, res) => {
+  const rows = await query(`
+    SELECT t.*, o.id as order_display_id, u.email as customer_email
+    FROM transactions t
+    JOIN orders o ON t.order_id = o.id
+    JOIN users u ON t.user_id = u.id
+    ORDER BY t.created_at DESC
+  `);
+  res.json(rows);
 });
 
 app.get('/api/invoice/:orderId', authRequired, async (req, res) => {

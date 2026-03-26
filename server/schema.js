@@ -212,6 +212,10 @@ export async function ensureSchema() {
   await query('ALTER TABLE site_settings ADD COLUMN free_shipping_threshold DECIMAL(10,2) DEFAULT 4999');
   await query('ALTER TABLE site_settings ADD COLUMN flat_shipping_rate DECIMAL(10,2) DEFAULT 100');
 
+  // Ensure created_at and updated_at have correct defaults for orders
+  await query('ALTER TABLE orders MODIFY COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');
+  await query('ALTER TABLE orders MODIFY COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+
   await query(`
     CREATE TABLE IF NOT EXISTS search_history (
       id CHAR(36) PRIMARY KEY,
@@ -222,6 +226,45 @@ export async function ensureSchema() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
       INDEX idx_search_user (user_id),
       INDEX idx_search_query (query)
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id CHAR(36) PRIMARY KEY,
+      order_id CHAR(36) NOT NULL,
+      user_id CHAR(36) NOT NULL,
+      provider VARCHAR(50) NOT NULL DEFAULT 'phonepe',
+      provider_transaction_id VARCHAR(255),
+      status VARCHAR(50) NOT NULL DEFAULT 'pending',
+      amount DECIMAL(10,2) NOT NULL,
+      currency VARCHAR(10) NOT NULL DEFAULT 'INR',
+      payment_method_type VARCHAR(50),
+      payment_method_provider VARCHAR(100),
+      provider_response LONGTEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_transactions_order (order_id),
+      INDEX idx_transactions_user (user_id),
+      INDEX idx_transactions_provider_id (provider_transaction_id)
+    )
+  `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS payment_complaints (
+      id CHAR(36) PRIMARY KEY,
+      order_id CHAR(36) NOT NULL,
+      user_id CHAR(36) NOT NULL,
+      utr_number VARCHAR(100),
+      transaction_id VARCHAR(255),
+      complaint_reason TEXT,
+      image_url LONGTEXT,
+      status VARCHAR(50) NOT NULL DEFAULT 'pending',
+      admin_remarks TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_complaints_order (order_id),
+      INDEX idx_complaints_user (user_id)
     )
   `);
 }

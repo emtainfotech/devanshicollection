@@ -14,6 +14,7 @@ import Products from "./pages/Products";
 import ProductDetail from "./pages/ProductDetail";
 import Cart from "./pages/Cart";
 import Checkout from "./pages/Checkout";
+import PaymentCallback from "./pages/PaymentCallback";
 import Wishlist from "./pages/Wishlist";
 import Account from "./pages/Account";
 import AdminDashboard from "./pages/admin/Dashboard";
@@ -21,6 +22,8 @@ import AdminProducts from "./pages/admin/Products";
 import AdminCategories from "./pages/admin/Categories";
 import AdminBanners from "./pages/admin/Banners";
 import AdminOrders from "./pages/admin/Orders";
+import AdminTransactions from "./pages/admin/Transactions";
+import AdminComplaints from "./pages/admin/Complaints";
 import AdminCoupons from "./pages/admin/Coupons";
 import AdminTestimonials from "./pages/admin/Testimonials";
 import AdminSettings from "./pages/admin/Settings";
@@ -62,6 +65,7 @@ const App = () => {
                   <Route path="/product/:slug" element={<ProductDetail />} />
                   <Route path="/cart" element={<Cart />} />
                   <Route path="/checkout" element={<Checkout />} />
+                  <Route path="/payment/callback" element={<PaymentCallback />} />
                   <Route path="/wishlist" element={<Wishlist />} />
                   <Route path="/account" element={<Account />} />
                   <Route path="/admin" element={<AdminDashboard />} />
@@ -72,6 +76,8 @@ const App = () => {
                   <Route path="/admin/chatbot-logs" element={<AdminChatbotLogs />} />
                   <Route path="/admin/blogs" element={<AdminBlogs />} />
                   <Route path="/admin/orders" element={<AdminOrders />} />
+                  <Route path="/admin/transactions" element={<AdminTransactions />} />
+                  <Route path="/admin/complaints" element={<AdminComplaints />} />
                   <Route path="/admin/coupons" element={<AdminCoupons />} />
                   <Route path="/admin/settings" element={<AdminSettings />} />
                   <Route path="/about" element={<About />} />

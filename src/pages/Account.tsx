@@ -7,14 +7,80 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
+import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock, AlertCircle } from 'lucide-react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatINR, toINRValue } from '@/lib/pricing';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+
+const ComplaintDialog = ({ orderId }: { orderId: string }) => {
+  const [utr, setUtr] = useState('');
+  const [reason, setReason] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [open, setOpen] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      await api.post('/complaints', {
+        order_id: orderId,
+        utr_number: utr,
+        complaint_reason: reason,
+        image_url: imageUrl,
+      });
+      toast.success('Complaint raised successfully. Our team will review it.');
+      setOpen(false);
+      setUtr('');
+      setReason('');
+      setImageUrl('');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to raise complaint');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button className="flex items-center gap-2 text-xs font-medium text-destructive hover:underline">
+          <AlertCircle className="h-3.5 w-3.5" /> Raise Payment Complaint
+        </button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Raise Payment Complaint</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+          <div className="space-y-2">
+            <Label htmlFor="utr">UTR / Transaction ID</Label>
+            <Input id="utr" value={utr} onChange={(e) => setUtr(e.target.value)} placeholder="Enter UTR number" required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="reason">Reason for Complaint</Label>
+            <Textarea id="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Describe the issue..." required />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="image">Payment Screenshot URL (Optional)</Label>
+            <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="Link to screenshot" />
+          </div>
+          <Button type="submit" disabled={isSubmitting} className="w-full">
+            {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const Account = () => {
   const { user, loading, signIn, signInWithGoogle, signUp, signOut, isAdmin } = useAuth();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [expandedOrders, setExpandedOrders] = useState<string[]>([]);
   const [loginEmail, setLoginEmail] = useState('');
@@ -174,16 +240,41 @@ const Account = () => {
                               </div>
 
                               {/* Summary & Invoice */}
-                              <div className="pt-4 border-t border-border flex items-end justify-between gap-4">
-                                <div className="space-y-1 text-xs font-body text-muted-foreground">
-                                  <p>Placed on {formatDate(order.created_at)}</p>
-                                  <p>Payment: <span className="font-bold uppercase text-primary">{order.payment_status}</span> via {order.payment_method}</p>
+                              <div className="pt-4 border-t border-border space-y-4">
+                                <div className="flex items-end justify-between gap-4">
+                                  <div className="space-y-1 text-xs font-body text-muted-foreground">
+                                    <p>Placed on {formatDate(order.created_at)}</p>
+                                    <p>Payment: <span className="font-bold uppercase text-primary">{order.payment_status}</span> via {order.payment_method}</p>
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {order.payment_status === 'unpaid' && (
+                                      <button 
+                                        onClick={async () => {
+                                          try {
+                                            const { redirectUrl } = await api.post('/pay', { order_id: order.id });
+                                            window.location.href = redirectUrl;
+                                          } catch (e: any) {
+                                            toast.error(e.message || 'Payment failed');
+                                          }
+                                        }}
+                                        className="px-4 py-2 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors"
+                                      >
+                                        Retry Payment
+                                      </button>
+                                    )}
+                                    {order.status === 'delivered' && (
+                                      <button 
+                                        onClick={() => window.open(`${api.defaults.baseURL}/invoice/${order.id}`, '_blank')}
+                                        className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-xs font-medium hover:bg-secondary/90 transition-colors"
+                                      >
+                                        <FileText className="h-3.5 w-3.5" /> Download Invoice
+                                      </button>
+                                    )}
+                                  </div>
                                 </div>
-                                {order.status === 'delivered' && (
-                                  <button className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors">
-                                    <FileText className="h-3.5 w-3.5" /> Download Invoice
-                                  </button>
-                                )}
+                                <div className="flex justify-end border-t border-border pt-3">
+                                  <ComplaintDialog orderId={order.id} />
+                                </div>
                               </div>
                             </div>
                           </motion.div>

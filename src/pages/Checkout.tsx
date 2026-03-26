@@ -79,7 +79,7 @@ const Checkout = () => {
         };
       });
 
-      await api.post('/orders', {
+      const response = await api.post('/orders', {
         items,
         coupon_code: state.couponCode,
         shipping_address: {
@@ -100,9 +100,17 @@ const Checkout = () => {
         },
       });
 
-      clearCart();
-      toast.success('Order placed successfully!');
-      navigate('/account');
+      const orderId = response.id;
+      
+      // Call payment API
+      const payResponse = await api.post('/pay', { order_id: orderId });
+      
+      if (payResponse.redirectUrl) {
+        clearCart();
+        window.location.href = payResponse.redirectUrl;
+      } else {
+        throw new Error('Payment initialization failed');
+      }
     } catch (error: any) {
       toast.error(error.message || 'Unable to place order');
     } finally {
