@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import Layout from '@/components/layout/Layout';
@@ -27,6 +27,7 @@ const isValidImageSrc = (value: string) => {
 
 const ProductDetail = () => {
   const { slug } = useParams();
+  const navigate = useNavigate();
   const { data: product, isLoading } = useProduct(slug || '');
   const { addItem } = useCart();
   const { toggleItem, isInWishlist } = useWishlist();
@@ -123,7 +124,19 @@ const ProductDetail = () => {
       quantity,
     };
     addItem(item);
+    return item;
+  };
+
+  const onAddToCart = () => {
+    handleAddToCart();
     toast.success('Added to your bag');
+  };
+
+  const handleBuyNow = () => {
+    const item = handleAddToCart();
+    if (item) {
+      navigate('/checkout');
+    }
   };
 
   return (
@@ -254,12 +267,19 @@ const ProductDetail = () => {
 
             <div className="flex flex-col sm:flex-row gap-4 mb-10">
               <button
-                onClick={handleAddToCart}
+                onClick={onAddToCart}
                 disabled={!product.stock}
-                className="flex-1 h-14 bg-primary text-primary-foreground flex items-center justify-center gap-3 rounded-full text-base font-bold tracking-wide hover:bg-primary/90 transition-all active:scale-[0.98] shadow-xl shadow-primary/20 disabled:opacity-50"
+                className="flex-1 h-14 bg-secondary text-foreground flex items-center justify-center gap-3 rounded-full text-base font-bold tracking-wide hover:bg-secondary/80 transition-all active:scale-[0.98] disabled:opacity-50"
               >
                 <ShoppingBag className="h-5 w-5" />
                 ADD TO BAG
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={!product.stock}
+                className="flex-[1.5] h-14 bg-primary text-primary-foreground flex items-center justify-center gap-3 rounded-full text-base font-bold tracking-wide hover:bg-primary/90 transition-all active:scale-[0.98] shadow-xl shadow-primary/20 disabled:opacity-50"
+              >
+                BUY IT NOW
               </button>
               <button className="h-14 px-8 border-2 border-border rounded-full hover:border-primary hover:text-primary transition-all active:scale-95 flex items-center justify-center gap-2">
                 <Share2 className="h-5 w-5" />
