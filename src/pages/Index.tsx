@@ -11,10 +11,10 @@ const Index = () => {
   return (
     <Layout>
       <HeroBanner />
-      <FeaturedCategories />
       <ProductGrid title="Trending Now" subtitle="Styles our community can't stop wearing" filter="trending" limit={4} />
-      <PromoBanner />
+      <FeaturedCategories />
       <ProductGrid title="New Arrivals" subtitle="Fresh picks, just landed" filter="new" limit={4} />
+      <PromoBanner />
       <RecentViewed />
       <Testimonials />
       <Features />
