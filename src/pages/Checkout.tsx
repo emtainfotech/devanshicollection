@@ -1,20 +1,24 @@
-import { FormEvent, useMemo, useState } from 'react';
+import { FormEvent, useMemo, useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Layout from '@/components/layout/Layout';
 import { useCart } from '@/contexts/CartContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, Plus } from 'lucide-react';
 import { formatINR, getShippingINR, GST_RATE, toINRValue, USD_TO_INR } from '@/lib/pricing';
 import { api } from '@/lib/api';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 
-type ShippingForm = {
-  fullName: string;
+type Address = {
+  id: string;
+  full_name: string;
   phone: string;
-  addressLine1: string;
+  address_line1: string;
   city: string;
   state: string;
-  pincode: string;
+  postal_code: string;
+  is_default: boolean;
 };
 
 const Checkout = () => {
@@ -22,14 +26,26 @@ const Checkout = () => {
   const { user } = useAuth();
   const { state, subtotal, total, clearCart, itemCount } = useCart();
   const [placingOrder, setPlacingOrder] = useState(false);
-  const [form, setForm] = useState<ShippingForm>({
-    fullName: '',
-    phone: '',
-    addressLine1: '',
-    city: '',
-    state: '',
-    pincode: '',
+  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
+
+  const { data: addresses, isLoading: addressesLoading } = useQuery<Address[]>({
+    queryKey: ['addresses'],
+    queryFn: () => api.get('/my-addresses'),
+    enabled: !!user,
   });
+
+  useEffect(() => {
+    if (addresses && !selectedAddressId) {
+      const defaultAddress = addresses.find(a => a.is_default) || addresses[0];
+      if (defaultAddress) {
+        setSelectedAddressId(defaultAddress.id);
+      }
+    }
+  }, [addresses, selectedAddressId]);
+
+  const selectedAddress = useMemo(() => {
+    return addresses?.find(a => a.id === selectedAddressId);
+  }, [addresses, selectedAddressId]);
 
   const subtotalINR = toINRValue(subtotal);
   const discountINR = toINRValue(subtotal - total);
@@ -38,17 +54,8 @@ const Checkout = () => {
   const grandTotalINR = subtotalINR - discountINR + shippingINR + gstINR;
 
   const canPlace = useMemo(() => {
-    return !!(
-      form.fullName &&
-      form.phone &&
-      form.addressLine1 &&
-      form.city &&
-      form.state &&
-      form.pincode &&
-      itemCount > 0 &&
-      user
-    );
-  }, [form, itemCount, user]);
+    return !!(selectedAddressId && itemCount > 0 && user);
+  }, [selectedAddressId, itemCount, user]);
 
   const handlePlaceOrder = async (e: FormEvent) => {
     e.preventDefault();
@@ -60,6 +67,10 @@ const Checkout = () => {
     if (itemCount === 0) {
       toast.error('Your cart is empty');
       navigate('/products');
+      return;
+    }
+    if (!selectedAddress) {
+      toast.error('Please select a shipping address');
       return;
     }
 
@@ -82,15 +93,7 @@ const Checkout = () => {
       const response = await api.post('/orders', {
         items,
         coupon_code: state.couponCode,
-        shipping_address: {
-          full_name: form.fullName,
-          phone: form.phone,
-          address_line1: form.addressLine1,
-          city: form.city,
-          state: form.state,
-          postal_code: form.pincode,
-          country: 'India',
-        },
+        shipping_address: selectedAddress,
         totals: {
           subtotal: total,
           discount_amount: subtotal - total,
@@ -137,33 +140,37 @@ const Checkout = () => {
       <div className="container mx-auto px-4 py-8">
         <h1 className="font-display text-4xl font-semibold mb-8">Checkout</h1>
         <div className="grid lg:grid-cols-3 gap-8">
-          <form onSubmit={handlePlaceOrder} className="lg:col-span-2 space-y-5">
+          <div className="lg:col-span-2 space-y-5">
             <div className="rounded-lg border border-border p-5 bg-card">
-              <h2 className="font-display text-2xl font-semibold mb-4">Shipping Details</h2>
-              <div className="grid md:grid-cols-2 gap-4">
-                <input className="px-3 py-2.5 rounded-md border border-input bg-background text-sm" placeholder="Full name" value={form.fullName} onChange={(e) => setForm((prev) => ({ ...prev, fullName: e.target.value }))} required />
-                <input className="px-3 py-2.5 rounded-md border border-input bg-background text-sm" placeholder="Phone" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} required />
-                <input className="md:col-span-2 px-3 py-2.5 rounded-md border border-input bg-background text-sm" placeholder="Address" value={form.addressLine1} onChange={(e) => setForm((prev) => ({ ...prev, addressLine1: e.target.value }))} required />
-                <input className="px-3 py-2.5 rounded-md border border-input bg-background text-sm" placeholder="City" value={form.city} onChange={(e) => setForm((prev) => ({ ...prev, city: e.target.value }))} required />
-                <input className="px-3 py-2.5 rounded-md border border-input bg-background text-sm" placeholder="State" value={form.state} onChange={(e) => setForm((prev) => ({ ...prev, state: e.target.value }))} required />
-                <input className="px-3 py-2.5 rounded-md border border-input bg-background text-sm" placeholder="Pincode" value={form.pincode} onChange={(e) => setForm((prev) => ({ ...prev, pincode: e.target.value }))} required />
-              </div>
-            </div>
-
-            <div className="rounded-lg border border-border p-5 bg-card">
-              <h2 className="font-display text-2xl font-semibold mb-2">Payment</h2>
-              <p className="font-body text-sm text-muted-foreground">Payment Gateway Coming Soon</p>
+              <h2 className="font-display text-2xl font-semibold mb-4">Shipping Address</h2>
+              {addressesLoading ? (
+                <p>Loading addresses...</p>
+              ) : (
+                <div className="space-y-4">
+                  {addresses?.map(address => (
+                    <div key={address.id} onClick={() => setSelectedAddressId(address.id)} className={`p-4 rounded-lg border cursor-pointer ${selectedAddressId === address.id ? 'border-primary bg-primary/5' : 'border-border'}`}>
+                      <p className="font-semibold">{address.full_name}</p>
+                      <p className="text-sm text-muted-foreground">{address.phone}</p>
+                      <p className="text-sm text-muted-foreground">{address.address_line1}, {address.city}, {address.state} - {address.postal_code}</p>
+                    </div>
+                  ))}
+                  <Button variant="outline" onClick={() => navigate('/account')} className="w-full mt-4">
+                    <Plus className="mr-2 h-4 w-4" /> Manage Addresses
+                  </Button>
+                </div>
+              )}
             </div>
 
             <button
-              type="submit"
+              type="button"
+              onClick={handlePlaceOrder}
               disabled={!canPlace || placingOrder}
               className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-7 py-3.5 rounded-md text-sm font-body font-medium disabled:opacity-50"
             >
               {placingOrder ? 'PLACING ORDER...' : 'PLACE ORDER'}
               <ArrowRight className="h-4 w-4" />
             </button>
-          </form>
+          </div>
 
           <aside className="rounded-lg border border-border p-5 bg-card h-fit sticky top-24">
             <h2 className="font-display text-2xl font-semibold mb-4">Order Summary</h2>

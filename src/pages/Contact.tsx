@@ -41,7 +41,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-display font-bold text-lg">Call Us</p>
-                    <p className="font-body text-muted-foreground">+91 98765 43210</p>
+                    <p className="font-body text-muted-foreground">+91 9691966184</p>
                   </div>
                 </div>
 
@@ -51,7 +51,7 @@ const Contact = () => {
                   </div>
                   <div>
                     <p className="font-display font-bold text-lg">Visit Us</p>
-                    <p className="font-body text-muted-foreground">Plot 47, Sector 10, Kharghar, Navi Mumbai - 410210</p>
+                    <p className="font-body text-muted-foreground">Devanshi collection, Near Union Bank and Gurukrupa Lab, in-front of Madhuram Cosmetics, Ganesh Chowk Harda, 461331 MP</p>
                   </div>
                 </div>
               </div>

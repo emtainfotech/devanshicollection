@@ -13,6 +13,51 @@ import { authRequired, adminRequired, signToken, verifyPassword } from './auth.j
 import { sendMail } from './email.js';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
+import passport from 'passport';
+import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: `${process.env.APP_URL}/api/auth/google/callback`
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails[0].value;
+      let user = await query('SELECT * FROM users WHERE email = ?', [email]);
+      if (user.length === 0) {
+        const resId = await query('SELECT UUID() as id');
+        const userId = resId[0].id;
+        await query(
+          'INSERT INTO users (id, email, first_name, last_name, created_at) VALUES (?, ?, ?, ?, NOW())',
+          [userId, email, profile.name.givenName, profile.name.familyName]
+        );
+        await query(
+          'INSERT INTO profiles (user_id, first_name, last_name, created_at, updated_at) VALUES (?, ?, ?, NOW(), NOW())',
+          [userId, profile.name.givenName, profile.name.familyName]
+        );
+        await query('INSERT INTO user_roles (user_id, role) VALUES (?, ?)', [userId, 'user']);
+        user = await query('SELECT * FROM users WHERE id = ?', [userId]);
+      }
+      return done(null, user[0]);
+    } catch (error) {
+      return done(error, null);
+    }
+  }
+));
+
+passport.serializeUser((user, done) => {
+  done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await query('SELECT * FROM users WHERE id = ?', [id]);
+    done(null, user[0]);
+  } catch (error) {
+    done(error, null);
+  }
+});
 
 const app = express();
 const APP_URL = 'https://devanshicollection.com';
@@ -50,7 +95,7 @@ app.get('/api/health', async (_req, res) => {
 
 // Auth
 app.post('/api/auth/signup', async (req, res) => {
-  const { email, password, first_name, last_name } = req.body || {};
+  const { email, password, first_name, last_name, phone } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const existing = await query('SELECT id FROM users WHERE email = ?', [email]);
   if (existing?.length) return res.status(409).json({ error: 'Email already registered' });
@@ -60,8 +105,8 @@ app.post('/api/auth/signup', async (req, res) => {
   const userId = resId[0].id;
 
   await query(
-    'INSERT INTO users (id, email, password_hash, created_at) VALUES (?, ?, ?, NOW())',
-    [userId, email, hash]
+    'INSERT INTO users (id, email, password_hash, phone, created_at) VALUES (?, ?, ?, ?, NOW())',
+    [userId, email, hash, phone || null]
   );
 
   await query(
@@ -73,7 +118,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
   const token = signToken({ id: userId, email, role: 'user' });
   await sendMail(email, 'Welcome to Devanshi Collection!', `<h1>Welcome, ${first_name || 'friend'}!</h1><p>Thanks for signing up. We're excited to have you.</p><p><a href="${APP_URL}">Visit our website</a></p>`);
-  res.json({ token, user: { id: userId, email, first_name, last_name, role: 'user' } });
+  res.json({ token, user: { id: userId, email, first_name, last_name, phone, role: 'user' } });
 });
 
 app.post('/api/auth/login', async (req, res) => {
@@ -88,25 +133,31 @@ app.post('/api/auth/login', async (req, res) => {
   const role = roles?.[0]?.role || 'user';
 
   const token = signToken({ id: user.id, email: user.email, role });
-  res.json({
-    token,
-    user: { id: user.id, email: user.email, first_name: profile.first_name, last_name: profile.last_name, role, created_at: user.created_at },
-  });
+  res.json({ token, user: { id: user.id, email: user.email, first_name: profile.first_name, last_name: profile.last_name, role, created_at: user.created_at } });
 });
+
+app.get('/api/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/api/auth/google/callback', passport.authenticate('google', { failureRedirect: '/login' }), (req, res) => {
+    const user = req.user;
+    const token = signToken({ id: user.id, email: user.email, role: user.role });
+    res.redirect(`${process.env.APP_URL}/auth/callback?token=${token}`);
+  }
+);
 
 app.get('/api/auth/me', authRequired, async (req, res) => {
   const users = await query('SELECT id, email, created_at FROM users WHERE id = ?', [req.user.id]);
   const user = users?.[0];
   if (!user) return res.json({ user: null });
 
-  const profiles = await query('SELECT first_name, last_name FROM profiles WHERE user_id = ?', [user.id]);
+  const profiles = await query('SELECT first_name, last_name, phone FROM profiles WHERE user_id = ?', [user.id]);
   const profile = profiles?.[0] || {};
 
   const roles = await query('SELECT role FROM user_roles WHERE user_id = ?', [user.id]);
   const role = roles?.[0]?.role || 'user';
 
   res.json({
-    user: { ...user, first_name: profile.first_name, last_name: profile.last_name, role }
+    user: { ...user, first_name: profile.first_name, last_name: profile.last_name, phone: profile.phone, role }
   });
 });
 
@@ -476,6 +527,53 @@ app.get('/api/my-complaints', authRequired, async (req, res) => {
   res.json(rows);
 });
 
+// Address Management
+app.get('/api/my-addresses', authRequired, async (req, res) => {
+  const rows = await query('SELECT * FROM user_addresses WHERE user_id = ? ORDER BY created_at DESC', [req.user.id]);
+  res.json(rows);
+});
+
+app.post('/api/my-addresses', authRequired, async (req, res) => {
+  const { full_name, phone, address_line1, city, state, postal_code, is_default } = req.body;
+  if (!full_name || !phone || !address_line1 || !city || !state || !postal_code) {
+    return res.status(400).json({ error: 'All address fields are required' });
+  }
+
+  const id = (await query('SELECT UUID() as id'))[0].id;
+  await query(
+    `INSERT INTO user_addresses (id, user_id, full_name, phone, address_line1, city, state, postal_code, is_default)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, req.user.id, full_name, phone, address_line1, city, state, postal_code, is_default ? 1 : 0]
+  );
+
+  if (is_default) {
+    await query('UPDATE user_addresses SET is_default = 0 WHERE user_id = ? AND id != ?', [req.user.id, id]);
+  }
+
+  res.json({ id, ok: true });
+});
+
+app.put('/api/my-addresses/:id', authRequired, async (req, res) => {
+  const { full_name, phone, address_line1, city, state, postal_code, is_default } = req.body;
+  
+  await query(
+    `UPDATE user_addresses SET full_name=?, phone=?, address_line1=?, city=?, state=?, postal_code=?, is_default=? WHERE id=? AND user_id=?`,
+    [full_name, phone, address_line1, city, state, postal_code, is_default ? 1 : 0, req.params.id, req.user.id]
+  );
+
+  if (is_default) {
+    await query('UPDATE user_addresses SET is_default = 0 WHERE user_id = ? AND id != ?', [req.user.id, req.params.id]);
+  }
+
+  res.json({ ok: true });
+});
+
+app.delete('/api/my-addresses/:id', authRequired, async (req, res) => {
+  await query('DELETE FROM user_addresses WHERE id = ? AND user_id = ?', [req.params.id, req.user.id]);
+  res.json({ ok: true });
+});
+
+
 // Admin Complaints & Transactions
 app.get('/api/admin/complaints', authRequired, adminRequired, async (_req, res) => {
   const rows = await query(`
@@ -651,10 +749,10 @@ app.patch('/api/admin/orders/:id', authRequired, adminRequired, async (req, res)
   let updateFields = [];
   let params = [];
 
-  if (status) { updateFields.push('status = ?'); params.push(status); }
-  if (payment_status) { updateFields.push('payment_status = ?'); params.push(payment_status); }
-  if (tracking_number) { updateFields.push('tracking_number = ?'); params.push(tracking_number); }
-  if (carrier) { updateFields.push('carrier = ?'); params.push(carrier); }
+  if (status !== undefined) { updateFields.push('status = ?'); params.push(status); }
+  if (payment_status !== undefined) { updateFields.push('payment_status = ?'); params.push(payment_status); }
+  if (tracking_number !== undefined) { updateFields.push('tracking_number = ?'); params.push(tracking_number); }
+  if (carrier !== undefined) { updateFields.push('carrier = ?'); params.push(carrier); }
 
   if (status === 'shipped') { updateFields.push('shipped_at = NOW()'); }
   if (status === 'delivered') { updateFields.push('delivered_at = NOW()'); }

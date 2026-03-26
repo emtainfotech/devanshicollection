@@ -267,5 +267,23 @@ export async function ensureSchema() {
       INDEX idx_complaints_user (user_id)
     )
   `);
+
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_addresses (
+      id CHAR(36) PRIMARY KEY,
+      user_id CHAR(36) NOT NULL,
+      full_name VARCHAR(255) NOT NULL,
+      phone VARCHAR(20) NOT NULL,
+      address_line1 VARCHAR(255) NOT NULL,
+      city VARCHAR(100) NOT NULL,
+      state VARCHAR(100) NOT NULL,
+      postal_code VARCHAR(20) NOT NULL,
+      country VARCHAR(100) NOT NULL DEFAULT 'India',
+      is_default TINYINT(1) DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      INDEX idx_addresses_user (user_id)
+    )
+  `);
 }
 

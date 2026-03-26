@@ -9,6 +9,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<any>;
   signInWithGoogle: () => Promise<any>;
   signOut: () => Promise<void>;
+  setToken: (token: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -18,19 +19,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const isAdmin = useMemo(() => String((user as any)?.role || '') === 'admin', [user]);
 
+  const fetchUser = async () => {
+    try {
+      const data: any = await api.get('/auth/me');
+      setUser(data?.user || null);
+    } catch {
+      setUser(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    api.get('/auth/me')
-      .then((data: any) => setUser(data?.user || null))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+    fetchUser();
   }, []);
 
-  const signUp = async (email: string, password: string, meta?: { first_name?: string; last_name?: string }) => {
+  const signUp = async (email: string, password: string, meta?: { first_name?: string; last_name?: string; phone?: string }) => {
     const data = await api.post('/auth/signup', {
       email,
       password,
       first_name: meta?.first_name,
       last_name: meta?.last_name,
+      phone: meta?.phone,
     });
     setToken(data.token);
     setUser(data.user);
@@ -45,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    throw new Error('Google login will be added after Hostinger deploy (needs OAuth redirect URL).');
+    window.location.href = `${api.BASE}/auth/google`;
   };
 
   const signOut = async () => {
@@ -53,8 +63,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const handleSetToken = (token: string | null) => {
+    setToken(token);
+    if (token) {
+      fetchUser();
+    } else {
+      setUser(null);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, isAdmin, signUp, signIn, signInWithGoogle, signOut }}>
+    <AuthContext.Provider value={{ user, loading, isAdmin, signUp, signIn, signInWithGoogle, signOut, setToken: handleSetToken }}>
       {children}
     </AuthContext.Provider>
   );

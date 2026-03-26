@@ -14,6 +14,7 @@ import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
+import AddressManager from '@/components/account/AddressManager';
 import { Button } from '@/components/ui/button';
 
 const ComplaintDialog = ({ orderId }: { orderId: string }) => {
@@ -89,6 +90,7 @@ const Account = () => {
   const [regPassword, setRegPassword] = useState('');
   const [regFirst, setRegFirst] = useState('');
   const [regLast, setRegLast] = useState('');
+  const [regPhone, setRegPhone] = useState('');
   const [submitting, setSubmitting] = useState(false);
   // ... (rest of states)
 
@@ -121,6 +123,7 @@ const Account = () => {
               </div>
               <div>
                 <p className="font-body font-medium">{user.email}</p>
+                {user.phone && <p className="font-body text-sm text-muted-foreground">{user.phone}</p>}
                 <p className="font-body text-xs text-muted-foreground">Member since {formatDate(user.created_at)}</p>
               </div>
             </div>
@@ -143,6 +146,8 @@ const Account = () => {
               </Link>
             )}
           </div>
+
+          <AddressManager />
 
           <div className="bg-card border border-border rounded-lg p-6 mb-6">
             <h2 className="font-display text-2xl font-semibold mb-4">My Orders</h2>
@@ -264,7 +269,7 @@ const Account = () => {
                                     )}
                                     {order.status === 'delivered' && (
                                       <button 
-                                        onClick={() => window.open(`${api.defaults.baseURL}/invoice/${order.id}`, '_blank')}
+                                        onClick={() => window.open(`${api.BASE}/invoice/${order.id}`, '_blank')}
                                         className="flex items-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground rounded-md text-xs font-medium hover:bg-secondary/90 transition-colors"
                                       >
                                         <FileText className="h-3.5 w-3.5" /> Download Invoice
@@ -336,10 +341,7 @@ const Account = () => {
               <form onSubmit={handleLogin} className="space-y-4">
                 <button
                   type="button"
-                  onClick={async () => {
-                    const { error } = await signInWithGoogle();
-                    if (error) toast.error(error.message);
-                  }}
+                  onClick={() => window.location.href = `${api.BASE}/auth/google`}
                   className="w-full border border-border bg-background py-3 text-sm font-body font-medium rounded-md hover:bg-accent transition-colors"
                 >
                   CONTINUE WITH GOOGLE
@@ -359,6 +361,7 @@ const Account = () => {
                   <div><Label className="font-body text-sm">Last Name</Label><Input value={regLast} onChange={(e) => setRegLast(e.target.value)} placeholder="Smith" className="mt-1.5" required /></div>
                 </div>
                 <div><Label className="font-body text-sm">Email</Label><Input type="email" value={regEmail} onChange={(e) => setRegEmail(e.target.value)} placeholder="your@email.com" className="mt-1.5" required /></div>
+                <div><Label className="font-body text-sm">Phone Number (Optional)</Label><Input type="tel" value={regPhone} onChange={(e) => setRegPhone(e.target.value)} placeholder="e.g. 9876543210" className="mt-1.5" /></div>
                 <div><Label className="font-body text-sm">Password</Label><Input type="password" value={regPassword} onChange={(e) => setRegPassword(e.target.value)} placeholder="••••••••" className="mt-1.5" required minLength={6} /></div>
                 <button type="submit" disabled={submitting} className="w-full btn-primary-gradient py-3 text-sm font-body font-medium tracking-wide hover:opacity-95 transition-colors active:scale-[0.97] rounded-md disabled:opacity-50">
                   {submitting ? 'CREATING...' : 'CREATE ACCOUNT'}
