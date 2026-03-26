@@ -358,7 +358,7 @@ app.post('/api/pay', authRequired, async (req, res) => {
     merchantId: process.env.PHONEPE_MERCHANT_ID,
     merchantTransactionId,
     merchantUserId: req.user.id,
-    amount: order.total_amount * 100, // Amount in paise
+    amount: Math.round(Number(order.total_amount) * 100), // Amount in paise as a strict integer
     redirectUrl: `${process.env.APP_URL}/payment/callback`,
     redirectMode: 'GET',
     callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
