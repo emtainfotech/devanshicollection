@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-const WHATSAPP_NUMBER = '919999999999';
+const WHATSAPP_NUMBER = '919691966184';
 const WHATSAPP_TEXT = 'Hi Devanshi Collection, I need help with my order.';
 
 const WhatsAppLogo = ({ className = 'h-6 w-6' }: { className?: string }) => (
