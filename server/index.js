@@ -360,7 +360,7 @@ app.post('/api/pay', authRequired, async (req, res) => {
     merchantUserId: req.user.id,
     amount: order.total_amount * 100, // Amount in paise
     redirectUrl: `${process.env.APP_URL}/payment/callback`,
-    redirectMode: 'POST',
+    redirectMode: 'GET',
     callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
     paymentInstrument: {
       type: 'PAY_PAGE',
@@ -441,6 +441,11 @@ app.post('/api/payment/callback', async (req, res) => {
   }
 
   res.status(200).send('OK');
+});
+
+// Handle cases where PhonePe might still try to POST to the redirectUrl
+app.post('/payment/callback', (req, res) => {
+  res.redirect(303, `${process.env.APP_URL}/payment/callback`);
 });
 
 // Verify payment status (polling or redirect)
