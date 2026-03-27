@@ -76,7 +76,7 @@ const Navbar = () => {
           </div>
 
           <div className="flex-1 flex justify-center">
-            <BrandLogo className="flex-shrink-0 h-8" />
+            <BrandLogo className="flex-shrink-0 h-12" />
           </div>
 
           <div className="flex items-center gap-1 flex-1 justify-end">
