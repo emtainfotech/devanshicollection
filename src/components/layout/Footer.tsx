@@ -1,8 +1,18 @@
 import { Link } from 'react-router-dom';
 import { Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
 import BrandLogo from './BrandLogo';
+import { useSiteSettings } from '@/hooks/useData';
 
 const Footer = () => {
+  const { data: settings } = useSiteSettings();
+
+  const socialLinks = [
+    { icon: Instagram, url: (settings as any)?.instagram_url, label: 'Instagram' },
+    { icon: Facebook, url: (settings as any)?.facebook_url, label: 'Facebook' },
+    { icon: Twitter, url: (settings as any)?.twitter_url, label: 'Twitter' },
+    { icon: Youtube, url: (settings as any)?.youtube_url, label: 'Youtube' },
+  ].filter(link => link.url);
+
   return (
     <footer className="bg-secondary text-foreground">
       <div className="container mx-auto px-4 py-16">
@@ -60,10 +70,18 @@ const Footer = () => {
             © {new Date().getFullYear()} Devanshi Collection. All rights reserved.
           </p>
           <div className="flex items-center gap-4">
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Instagram className="h-5 w-5" /></a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Facebook className="h-5 w-5" /></a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Twitter className="h-5 w-5" /></a>
-            <a href="#" className="text-muted-foreground hover:text-primary transition-colors"><Youtube className="h-5 w-5" /></a>
+            {socialLinks.map((link, idx) => (
+              <a 
+                key={idx}
+                href={link.url} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-muted-foreground hover:text-primary transition-colors"
+                aria-label={link.label}
+              >
+                <link.icon className="h-5 w-5" />
+              </a>
+            ))}
           </div>
         </div>
       </div>

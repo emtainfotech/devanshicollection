@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Calendar, User, ArrowLeft, Share2 } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const BlogPost = () => {
   const { slug } = useParams();
@@ -44,6 +45,11 @@ const BlogPost = () => {
 
   return (
     <Layout>
+      <SEO 
+        title={blog.title} 
+        description={blog.excerpt || `Read our latest blog post about ${blog.title} on Devanshi Collection.`}
+        image={blog.image_url}
+      />
       <div className="container mx-auto px-4 py-12 max-w-4xl">
         <Link to="/blog" className="inline-flex items-center gap-2 text-sm font-body text-muted-foreground hover:text-primary mb-8 transition-colors">
           <ArrowLeft className="h-4 w-4" /> Back to blog

@@ -4,15 +4,21 @@ interface BrandLogoProps {
   compact?: boolean;
   withTagline?: boolean;
   className?: string;
+  imgClassName?: string;
 }
 
-const BrandLogo = ({ compact = false, withTagline = false, className = '' }: BrandLogoProps) => {
+const BrandLogo = ({ 
+  compact = false, 
+  withTagline = false, 
+  className = '',
+  imgClassName = ''
+}: BrandLogoProps) => {
   return (
     <Link to="/" className={`inline-flex items-center gap-2 ${className}`.trim()}>
       <img
         src="/logo-devanshi.svg"
         alt="Devanshi Collection logo"
-        className={compact ? 'h-8 w-auto' : 'h-10 w-auto md:h-12'}
+        className={imgClassName || (compact ? 'h-10 w-auto' : 'h-14 w-auto md:h-20')}
         loading="eager"
       />
       {/* <span className="leading-tight">

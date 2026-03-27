@@ -7,6 +7,7 @@ import { useProducts, useCategories } from '@/hooks/useData';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { formatINR } from '@/lib/pricing';
+import SEO from '@/components/SEO';
 
 const SIZES = ['XS', 'S', 'M', 'L', 'XL'];
 const SORT_OPTIONS = [
@@ -50,6 +51,10 @@ const Products = () => {
 
   return (
     <Layout>
+      <SEO 
+        title={title} 
+        description={category?.description || `Browse our collection of ${title} at Devanshi Collection. Quality fashion for every woman.`}
+      />
       <div className="container mx-auto px-4 py-12">
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="mb-12 text-center">
           <h1 className="font-display text-4xl md:text-5xl font-bold tracking-tight text-foreground">

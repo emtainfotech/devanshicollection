@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Link } from "react-router-dom";
 import { Calendar, User, ArrowRight } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const Blog = () => {
   const { data: blogs, isLoading } = useQuery({
@@ -14,6 +15,10 @@ const Blog = () => {
 
   return (
     <Layout>
+      <SEO 
+        title="Our Blog" 
+        description="Stay updated with the latest trends, styling tips, and news from Devanshi Collection. Read our blog for fashion inspiration."
+      />
       <div className="bg-secondary/30 py-20 border-b border-border">
         <div className="container mx-auto px-4 text-center">
           <h1 className="font-display text-4xl md:text-6xl font-bold mb-6 italic text-primary">Our Blog</h1>

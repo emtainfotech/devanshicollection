@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { formatINR } from '@/lib/pricing';
 import { api } from '@/lib/api';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import SEO from '@/components/SEO';
 
 const isValidImageSrc = (value: string) => {
   const v = String(value || '').trim();
@@ -98,7 +99,7 @@ const ProductDetail = () => {
         <div className="container mx-auto px-4 py-32 text-center">
           <h1 className="font-display text-4xl font-bold mb-6">Product Not Found</h1>
           <Link to="/products" className="inline-flex bg-primary text-primary-foreground px-8 py-3 rounded-full font-body text-sm font-semibold tracking-wide hover:bg-primary/90 transition-all">
-            Back to Shop
+            Back to Products
           </Link>
         </div>
       </Layout>
@@ -141,6 +142,11 @@ const ProductDetail = () => {
 
   return (
     <Layout>
+      <SEO 
+        title={product.name} 
+        description={product.description || `Buy ${product.name} at Devanshi Collection. Best price and quality guaranteed.`}
+        image={images[0]}
+      />
       <div className="container mx-auto px-4 py-8">
         {/* Breadcrumbs */}
         <nav className="flex items-center gap-2 text-[10px] md:text-xs font-body uppercase tracking-widest text-muted-foreground mb-10 overflow-x-auto whitespace-nowrap pb-2">

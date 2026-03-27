@@ -231,6 +231,71 @@ app.get('/api/site-settings', async (_req, res) => {
   res.json(rows?.[0] || null);
 });
 
+app.get('/sitemap.xml', async (_req, res) => {
+  try {
+    const products = await query('SELECT slug, updated_at FROM products WHERE is_active = 1');
+    const categories = await query('SELECT slug, updated_at FROM categories WHERE is_active = 1');
+    const blogs = await query('SELECT slug, published_at FROM blogs WHERE is_published = 1');
+
+    const baseUrl = APP_URL;
+    const staticPages = ['', '/about', '/contact', '/blog', '/privacy', '/terms', '/products'];
+    
+    let xml = '<?xml version="1.0" encoding="UTF-8"?>';
+    xml += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">';
+    
+    // Static pages
+    staticPages.forEach(page => {
+      xml += `
+        <url>
+          <loc>${baseUrl}${page}</loc>
+          <changefreq>weekly</changefreq>
+          <priority>${page === '' ? '1.0' : '0.8'}</priority>
+        </url>`;
+    });
+
+    // Categories
+    categories.forEach(cat => {
+      xml += `
+        <url>
+          <loc>${baseUrl}/products?category=${cat.slug}</loc>
+          <lastmod>${new Date(cat.updated_at).toISOString().split('T')[0]}</lastmod>
+          <changefreq>weekly</changefreq>
+          <priority>0.7</priority>
+        </url>`;
+    });
+
+    // Products
+    products.forEach(p => {
+      xml += `
+        <url>
+          <loc>${baseUrl}/product/${p.slug}</loc>
+          <lastmod>${new Date(p.updated_at).toISOString().split('T')[0]}</lastmod>
+          <changefreq>weekly</changefreq>
+          <priority>0.9</priority>
+        </url>`;
+    });
+
+    // Blogs
+    blogs.forEach(b => {
+      xml += `
+        <url>
+          <loc>${baseUrl}/blog/${b.slug}</loc>
+          <lastmod>${new Date(b.published_at).toISOString().split('T')[0]}</lastmod>
+          <changefreq>weekly</changefreq>
+          <priority>0.6</priority>
+        </url>`;
+    });
+
+    xml += '</urlset>';
+    
+    res.header('Content-Type', 'application/xml');
+    res.send(xml);
+  } catch (error) {
+    console.error('Sitemap generation error:', error);
+    res.status(500).send('Error generating sitemap');
+  }
+});
+
 app.get('/api/shipping-rules', async (_req, res) => {
   const rows = await query('SELECT free_shipping_threshold, flat_shipping_rate FROM site_settings LIMIT 1');
   res.json(rows?.[0] || { free_shipping_threshold: 4999, flat_shipping_rate: 100 });
@@ -1073,12 +1138,62 @@ app.delete('/api/admin/testimonials/:id', authRequired, adminRequired, async (re
 });
 
 app.put('/api/admin/site-settings', authRequired, adminRequired, async (req, res) => {
-  const { announcement_text } = req.body || {};
+  const { 
+    announcement_text, 
+    free_shipping_threshold, 
+    flat_shipping_rate,
+    instagram_url,
+    facebook_url,
+    twitter_url,
+    youtube_url
+  } = req.body || {};
+  
   const existing = await query('SELECT id FROM site_settings ORDER BY created_at ASC LIMIT 1');
   if (existing?.[0]?.id) {
-    await query('UPDATE site_settings SET announcement_text=? WHERE id=?', [announcement_text || null, existing[0].id]);
+    await query(
+      `UPDATE site_settings SET 
+        announcement_text=?, 
+        free_shipping_threshold=?, 
+        flat_shipping_rate=?,
+        instagram_url=?,
+        facebook_url=?,
+        twitter_url=?,
+        youtube_url=?,
+        updated_at=NOW() 
+      WHERE id=?`, 
+      [
+        announcement_text || null, 
+        Number(free_shipping_threshold || 4999), 
+        Number(flat_shipping_rate || 100),
+        instagram_url || null,
+        facebook_url || null,
+        twitter_url || null,
+        youtube_url || null,
+        existing[0].id
+      ]
+    );
   } else {
-    await query('INSERT INTO site_settings (id, announcement_text) VALUES (UUID(), ?)', [announcement_text || null]);
+    await query(
+      `INSERT INTO site_settings (
+        id, 
+        announcement_text, 
+        free_shipping_threshold, 
+        flat_shipping_rate,
+        instagram_url,
+        facebook_url,
+        twitter_url,
+        youtube_url
+      ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?)`, 
+      [
+        announcement_text || null, 
+        Number(free_shipping_threshold || 4999), 
+        Number(flat_shipping_rate || 100),
+        instagram_url || null,
+        facebook_url || null,
+        twitter_url || null,
+        youtube_url || null
+      ]
+    );
   }
   res.json({ ok: true });
 });

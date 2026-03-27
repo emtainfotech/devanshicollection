@@ -1,9 +1,14 @@
 import Layout from "@/components/layout/Layout";
 import { Mail, Phone, MapPin, Send } from "lucide-react";
+import SEO from "@/components/SEO";
 
 const Contact = () => {
   return (
     <Layout>
+      <SEO 
+        title="Contact Us" 
+        description="Get in touch with Devanshi Collection for any queries regarding our collections, orders, or support. We're here to help."
+      />
       <div className="bg-secondary/30 py-20">
         <div className="container mx-auto px-4 text-center">
           <h1 className="font-display text-4xl md:text-5xl font-bold mb-6 italic text-primary">Contact Us</h1>

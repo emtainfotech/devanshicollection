@@ -6,10 +6,15 @@ import PromoBanner from '@/components/home/PromoBanner';
 import Features from '@/components/home/Features';
 import Testimonials from '@/components/home/Testimonials';
 import RecentViewed from '@/components/product/RecentViewed';
+import SEO from '@/components/SEO';
 
 const Index = () => {
   return (
     <Layout>
+      <SEO 
+        title="Premium Ethnic and Modern Wear" 
+        description="Discover the latest collection of premium ethnic and modern wear for women at Devanshi Collection. Shop dresses, tops, and more with free shipping."
+      />
       <HeroBanner />
       <ProductGrid title="Trending Now" subtitle="Styles our community can't stop wearing" filter="trending" limit={4} />
       <FeaturedCategories />

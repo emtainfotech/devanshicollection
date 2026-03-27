@@ -18,6 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddressManager from '@/components/account/AddressManager';
 import { Button } from '@/components/ui/button';
+import SEO from '@/components/SEO';
 
 const OrderTimeline = ({ order }: { order: any }) => {
   const isCancelled = order.status.toLowerCase() === 'cancelled';
@@ -277,6 +278,10 @@ const Account = () => {
   if (user) {
     return (
       <Layout>
+        <SEO 
+          title="My Account" 
+          description="View your profile, track orders, and manage your account at Devanshi Collection."
+        />
         <div className="container mx-auto px-4 py-12 max-w-2xl">
           <h1 className="font-display text-4xl font-semibold mb-8" style={{ lineHeight: '1.1' }}>My Account</h1>
           {/* ... (profile card) */}
@@ -545,6 +550,10 @@ const Account = () => {
 
   return (
     <Layout>
+      <SEO 
+        title="My Account" 
+        description="Manage your account, view order history, and update your addresses at Devanshi Collection."
+      />
       <div className="container mx-auto px-4 py-16 max-w-md">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <h1 className="font-display text-4xl font-semibold text-center mb-8" style={{ lineHeight: '1.1' }}>Welcome Back</h1>

@@ -211,6 +211,10 @@ export async function ensureSchema() {
   await query('ALTER TABLE orders ADD COLUMN delivered_at TIMESTAMP NULL');
   await query('ALTER TABLE site_settings ADD COLUMN free_shipping_threshold DECIMAL(10,2) DEFAULT 4999');
   await query('ALTER TABLE site_settings ADD COLUMN flat_shipping_rate DECIMAL(10,2) DEFAULT 100');
+  await query('ALTER TABLE site_settings ADD COLUMN instagram_url TEXT');
+  await query('ALTER TABLE site_settings ADD COLUMN facebook_url TEXT');
+  await query('ALTER TABLE site_settings ADD COLUMN twitter_url TEXT');
+  await query('ALTER TABLE site_settings ADD COLUMN youtube_url TEXT');
 
   // Ensure created_at and updated_at have correct defaults for orders
   await query('ALTER TABLE orders MODIFY COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP');

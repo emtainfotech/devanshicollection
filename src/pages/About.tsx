@@ -1,8 +1,13 @@
 import Layout from "@/components/layout/Layout";
+import SEO from "@/components/SEO";
 
 const About = () => {
   return (
     <Layout>
+      <SEO 
+        title="Our Story" 
+        description="Learn more about Devanshi Collection, our journey since 2026, and our commitment to providing premium fashion for women."
+      />
       <div className="bg-secondary/30 py-20">
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto text-center">
