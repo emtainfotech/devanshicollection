@@ -7,16 +7,71 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock, AlertCircle, RotateCcw } from 'lucide-react';
+import { LogOut, Package, Heart, User, ChevronDown, ChevronUp, Truck, FileText, Clock, AlertCircle, RotateCcw, CheckCircle2 } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { formatINR, toINRValue } from '@/lib/pricing';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import AddressManager from '@/components/account/AddressManager';
 import { Button } from '@/components/ui/button';
+
+const OrderTimeline = ({ order }: { order: any }) => {
+  const isCancelled = order.status.toLowerCase() === 'cancelled';
+  const isReturned = order.status.toLowerCase() === 'returned';
+  const isRefunded = order.status.toLowerCase() === 'refunded';
+
+  if (isCancelled || isReturned || isRefunded) return null;
+
+  const steps = [
+    { label: 'Order Booked', status: 'pending', date: order.created_at, icon: Package },
+    { label: 'Confirmed', status: 'confirmed', date: order.status !== 'pending' ? order.updated_at : null, icon: Clock },
+    { label: 'Shipped', status: 'shipped', date: order.shipped_at, icon: Truck },
+    { label: 'Delivered', status: 'delivered', date: order.delivered_at, icon: CheckCircle2 },
+  ];
+
+  const currentStatusIdx = ['pending', 'confirmed', 'shipped', 'delivered'].indexOf(order.status.toLowerCase());
+
+  return (
+    <div className="space-y-6">
+      <h4 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <Clock className="h-3.5 w-3.5" /> Order Timeline
+      </h4>
+      <div className="relative pl-6 space-y-8 border-l-2 border-secondary ml-3">
+        {steps.map((step, idx) => {
+          const isDone = idx <= currentStatusIdx;
+          const StepIcon = step.icon;
+          
+          return (
+            <div key={idx} className="relative">
+              <div className={`absolute -left-[33px] top-0 w-6 h-6 rounded-full border-2 border-background flex items-center justify-center transition-colors ${isDone ? 'bg-primary text-primary-foreground' : 'bg-secondary text-muted-foreground'}`}>
+                <StepIcon className="h-3 w-3" />
+              </div>
+              <div className="space-y-1">
+                <p className={`text-sm font-semibold font-body leading-none ${isDone ? 'text-foreground' : 'text-muted-foreground opacity-50'}`}>
+                  {step.label}
+                </p>
+                {step.date && (
+                  <p className="text-[10px] text-muted-foreground font-body">
+                    {formatDate(step.date)}
+                  </p>
+                )}
+                {!step.date && isDone && (
+                   <p className="text-[10px] text-muted-foreground font-body italic">
+                    In progress
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
 
 const ReturnRequestDialog = ({ orderId, status, deliveredAt }: { orderId: string, status: string, deliveredAt?: string }) => {
   const [type, setType] = useState<'return' | 'refund'>('return');
@@ -198,6 +253,19 @@ const Account = () => {
     },
   });
 
+  const cancelOrderMutation = useMutation({
+    mutationFn: async (orderId: string) => {
+      return await api.post(`/orders/${orderId}/cancel`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      toast.success('Order cancelled successfully');
+    },
+    onError: (err: any) => {
+      toast.error(err.message || 'Failed to cancel order');
+    },
+  });
+
   const toggleOrder = (id: string) => {
     setExpandedOrders(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
@@ -252,12 +320,16 @@ const Account = () => {
             ) : (
               <div className="space-y-4">
                 {orders.map((order: any) => {
+                  const isCancelled = order.status.toLowerCase() === 'cancelled';
+                  const isReturned = order.status.toLowerCase() === 'returned';
+                  const isRefunded = order.status.toLowerCase() === 'refunded';
+                  
                   const steps = ['pending', 'confirmed', 'shipped', 'delivered'];
                   const activeStep = Math.max(0, steps.indexOf(order.status.toLowerCase()));
                   const isExpanded = expandedOrders.includes(order.id);
 
                   return (
-                    <div key={order.id} className="rounded-lg border border-border overflow-hidden">
+                    <div key={order.id} className={`rounded-lg border border-border overflow-hidden ${isCancelled ? 'opacity-75 bg-secondary/5' : ''}`}>
                       <div 
                         className="p-4 cursor-pointer hover:bg-secondary/20 transition-colors"
                         onClick={() => toggleOrder(order.id)}
@@ -266,19 +338,31 @@ const Account = () => {
                           <div className="flex items-center gap-3">
                             {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                             <p className="text-xs font-body font-medium">Order #{order.id.slice(0, 8)}</p>
+                            {isCancelled && <span className="text-[10px] bg-destructive/10 text-destructive px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Cancelled</span>}
+                            {isReturned && <span className="text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Returned</span>}
+                            {isRefunded && <span className="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Refunded</span>}
                           </div>
                           <p className="text-sm font-body font-bold">{formatINR(toINRValue(Number(order.total_amount)))}</p>
                         </div>
-                        <div className="mt-4 grid grid-cols-4 gap-2">
-                          {steps.map((step, idx) => (
-                            <div key={step} className="space-y-1">
-                              <div className={`h-1.5 rounded-full ${idx <= activeStep ? 'bg-primary' : 'bg-secondary'}`} />
-                              <p className={`text-[10px] uppercase tracking-wide font-body font-semibold ${idx <= activeStep ? 'text-foreground' : 'text-muted-foreground'}`}>
-                                {step}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
+                        
+                        {!isCancelled && !isReturned && !isRefunded ? (
+                          <div className="mt-4 grid grid-cols-4 gap-2">
+                            {steps.map((step, idx) => (
+                              <div key={step} className="space-y-1">
+                                <div className={`h-1.5 rounded-full ${idx <= activeStep ? 'bg-primary' : 'bg-secondary'}`} />
+                                <p className={`text-[10px] uppercase tracking-wide font-body font-semibold ${idx <= activeStep ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  {step}
+                                </p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="mt-4">
+                            <p className="text-xs font-body text-muted-foreground italic">
+                              This order is {order.status.toLowerCase()}.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <AnimatePresence>
@@ -290,6 +374,8 @@ const Account = () => {
                             className="border-t border-border bg-secondary/10"
                           >
                             <div className="p-4 space-y-6">
+                              <OrderTimeline order={order} />
+                              
                               {/* Tracking Info */}
                               {(order.tracking_number || order.status === 'shipped' || order.status === 'delivered') && (
                                 <div className="bg-background p-4 rounded-lg border border-border border-l-4 border-l-primary">
@@ -348,7 +434,38 @@ const Account = () => {
                                     <p>Payment: <span className="font-bold uppercase text-primary">{order.payment_status}</span> via {order.payment_method}</p>
                                   </div>
                                   <div className="flex items-center gap-2">
-                                    {order.payment_status === 'unpaid' && (
+                                    {['pending', 'confirmed'].includes(order.status.toLowerCase()) && (
+                                      <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                          <Button 
+                                            variant="outline"
+                                            size="sm"
+                                            className="text-destructive border-destructive hover:bg-destructive hover:text-destructive-foreground text-[10px] h-8"
+                                            disabled={cancelOrderMutation.isPending}
+                                          >
+                                            Cancel Order
+                                          </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                          <AlertDialogHeader>
+                                            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                              This action cannot be undone. This will permanently cancel your order #{order.id.slice(0, 8)}.
+                                            </AlertDialogDescription>
+                                          </AlertDialogHeader>
+                                          <AlertDialogFooter>
+                                            <AlertDialogCancel>No, keep order</AlertDialogCancel>
+                                            <AlertDialogAction 
+                                              onClick={() => cancelOrderMutation.mutate(order.id)}
+                                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                            >
+                                              Yes, cancel order
+                                            </AlertDialogAction>
+                                          </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                      </AlertDialog>
+                                    )}
+                                    {order.payment_status === 'unpaid' && order.status !== 'cancelled' && (
                                       <button 
                                         onClick={async () => {
                                           try {

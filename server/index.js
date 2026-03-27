@@ -321,6 +321,36 @@ app.get('/api/my-orders', authRequired, async (req, res) => {
   res.json(rows.map((o) => ({ ...o, shipping_address: safeJson(o.shipping_address), items: safeJson(o.items) })));
 });
 
+app.post('/api/orders/:id/cancel', authRequired, async (req, res) => {
+  const { id } = req.params;
+  const orders = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [id, req.user.id]);
+  const order = orders?.[0];
+
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  
+  const cancellableStatuses = ['pending', 'confirmed'];
+  if (!cancellableStatuses.includes(order.status.toLowerCase())) {
+    return res.status(400).json({ error: `Order cannot be cancelled as it is already ${order.status}` });
+  }
+
+  await query('UPDATE orders SET status = "cancelled", updated_at = NOW() WHERE id = ?', [id]);
+  
+  // Send cancellation email
+  try {
+    const profiles = await query('SELECT first_name FROM profiles WHERE user_id = ?', [req.user.id]);
+    const firstName = profiles?.[0]?.first_name || 'Customer';
+    await sendMail(
+      req.user.email,
+      `Order #${id.slice(0, 8)} Cancelled`,
+      `<h1>Order Cancelled</h1><p>Hi ${firstName},</p><p>Your order #${id.slice(0, 8)} has been successfully cancelled as per your request.</p><p>If you have already paid, any refund will be processed according to our policy.</p>`
+    );
+  } catch (err) {
+    console.error('Failed to send cancellation email:', err);
+  }
+
+  res.json({ ok: true });
+});
+
 // Reviews submit (user)
 app.post('/api/reviews', authRequired, async (req, res) => {
   const { product_id, rating, comment } = req.body || {};

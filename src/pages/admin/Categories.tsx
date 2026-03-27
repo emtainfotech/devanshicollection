@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -138,8 +139,22 @@ const AdminCategories = () => {
                   </span>
                 </td>
                 <td className="p-3 text-right">
-                  <button onClick={() => { setEditing({ ...c, sort_order: String(c.sort_order) }); setDialogOpen(true); }} className="p-1.5 hover:bg-accent rounded"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => { if (confirm('Delete?')) deleteMutation.mutate(c.id); }} className="p-1.5 hover:bg-destructive/10 rounded text-destructive ml-1"><Trash2 className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => { setEditing({ ...c, sort_order: String(c.sort_order) }); setDialogOpen(true); }} className="p-1.5 hover:bg-secondary rounded transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <button className="p-1.5 hover:bg-destructive/10 rounded text-destructive ml-1"><Trash2 className="h-3.5 w-3.5" /></button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                        <AlertDialogDescription>Are you sure? This cannot be undone.</AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => deleteMutation.mutate(c.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </td>
               </tr>
             ))}

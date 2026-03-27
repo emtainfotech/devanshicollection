@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { Plus, Pencil, Trash2, Search } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -117,7 +118,21 @@ const AdminBanners = () => {
             </div>
             <div className="flex gap-1">
               <button onClick={() => { setEditing({ ...b, sort_order: String(b.sort_order) }); setDialogOpen(true); }} className="p-2 hover:bg-accent rounded"><Pencil className="h-4 w-4" /></button>
-              <button onClick={() => { if (confirm('Delete?')) deleteMutation.mutate(b.id); }} className="p-2 hover:bg-destructive/10 rounded text-destructive"><Trash2 className="h-4 w-4" /></button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button className="p-2 hover:bg-destructive/10 rounded text-destructive"><Trash2 className="h-4 w-4" /></button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Banner</AlertDialogTitle>
+                    <AlertDialogDescription>Are you sure? This cannot be undone.</AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteMutation.mutate(b.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </div>
         ))}
