@@ -7,7 +7,7 @@ const FeaturedCategories = () => {
   const { data: categories, isLoading, error } = useCategories();
 
   if (isLoading) return (
-    <section className="py-10 md:py-20 bg-background">
+    <section className="py-10 md:py-20">
       <div className="container mx-auto px-4">
         <div className="text-center mb-10">
           <h2 className="font-display text-2xl md:text-4xl font-semibold text-foreground tracking-tight">Shop by Category</h2>
@@ -27,7 +27,7 @@ const FeaturedCategories = () => {
   if (error) return <div className="text-center py-20 text-red-500">Failed to load categories.</div>;
 
   return (
-    <section className="py-10 md:py-20 bg-background">
+    <section className="py-10 md:py-20">
       <div className="container mx-auto px-4">
         <motion.div 
           initial={{ opacity: 0, y: 10 }} 

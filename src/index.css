@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    --background: 30 25% 98%;
+    --background: 330 30% 90%;
     --foreground: 20 10% 12%;
 
     --card: 30 20% 97%;
@@ -90,7 +90,16 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Outfit', sans-serif;
+    background-image: url('/background-pattern.png');
+    background-repeat: repeat;
+    background-size: 100% auto;
+    background-attachment: fixed;
+    background-position: top center;
   }
+
+
+
+
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Cormorant Garamond', serif;

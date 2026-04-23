@@ -16,9 +16,9 @@ const Index = () => {
         description="Discover the latest collection of premium ethnic and modern wear for women at Devanshi Collection. Shop dresses, tops, and more with free shipping."
       />
       <HeroBanner />
-      <ProductGrid title="Trending Now" subtitle="Styles our community can't stop wearing" filter="trending" limit={4} />
+      <ProductGrid title="Trending Now" subtitle="Styles our community can't stop wearing" filter="trending" limit={20} isSlider={true} />
       <FeaturedCategories />
-      <ProductGrid title="New Arrivals" subtitle="Fresh picks, just landed" filter="new" limit={4} />
+      <ProductGrid title="New Arrivals" subtitle="Fresh picks, just landed" filter="new" limit={20} isSlider={true} />
       <PromoBanner />
       <RecentViewed />
       <Testimonials />

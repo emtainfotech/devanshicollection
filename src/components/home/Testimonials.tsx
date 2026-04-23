@@ -8,7 +8,7 @@ const Testimonials = () => {
   if (!testimonials || testimonials.length === 0) return null;
 
   return (
-    <section className="bg-background py-24">
+    <section className="py-24">
       <div className="container mx-auto px-4">
         <div className="text-center mb-16">
           <motion.p 

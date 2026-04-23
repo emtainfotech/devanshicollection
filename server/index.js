@@ -551,38 +551,46 @@ app.delete('/api/admin/blogs/:id', authRequired, adminRequired, async (req, res)
 });
 
 app.post('/api/pay', authRequired, async (req, res) => {
-  const { order_id } = req.body;
-  if (!order_id) return res.status(400).json({ error: 'Order ID is required' });
-
-  const [order] = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [order_id, req.user.id]);
-  if (!order) return res.status(404).json({ error: 'Order not found' });
-
-  const merchantTransactionId = `MT_${order.id.slice(0, 8)}_${Date.now()}`;
-  const transactionId = (await query('SELECT UUID() as id'))[0].id;
-
-  await query(
-    `INSERT INTO transactions (id, order_id, user_id, provider_transaction_id, amount, currency)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [transactionId, order.id, req.user.id, merchantTransactionId, order.total_amount, 'INR']
-  );
-
-  const payload = {
-    merchantId: process.env.PHONEPE_MERCHANT_ID,
-    merchantTransactionId,
-    merchantUserId: req.user.id,
-    amount: Math.round(Number(order.total_amount) * 100), // Amount in paise as a strict integer
-    redirectUrl: `${process.env.APP_URL}/payment/callback`,
-    redirectMode: 'GET',
-    callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
-    paymentInstrument: {
-      type: 'PAY_PAGE',
-    },
-  };
-
-  const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-  const checksum = crypto.createHash('sha256').update(base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
-
   try {
+    const { order_id } = req.body;
+    console.log('Received payment request for order:', order_id);
+    if (!order_id) return res.status(400).json({ error: 'Order ID is required' });
+
+    const [order] = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [order_id, req.user.id]);
+    if (!order) {
+      console.error('Order not found for ID:', order_id);
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const merchantTransactionId = `MT_${order.id.slice(0, 8)}_${Date.now()}`;
+    const transactionId = (await query('SELECT UUID() as id'))[0].id;
+
+    console.log('Inserting transaction:', transactionId);
+    await query(
+      `INSERT INTO transactions (id, order_id, user_id, provider_transaction_id, amount, currency)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [transactionId, order.id, req.user.id, merchantTransactionId, order.total_amount, 'INR']
+    );
+
+    const payload = {
+      merchantId: process.env.PHONEPE_MERCHANT_ID,
+      merchantTransactionId,
+      merchantUserId: req.user.id,
+      amount: Math.round(Number(order.total_amount) * 100), // Amount in paise as a strict integer
+      redirectUrl: `${process.env.APP_URL}/payment/callback`,
+      redirectMode: 'GET',
+      callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
+      paymentInstrument: {
+        type: 'PAY_PAGE',
+      },
+    };
+
+    console.log('Payload for PhonePe:', JSON.stringify(payload, null, 2));
+
+    const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
+    const checksum = crypto.createHash('sha256').update(base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
+
+    console.log('Initiating request to PhonePe...');
     const response = await fetch(`${process.env.PHONEPE_HOST}/pg/v1/pay`, {
       method: 'POST',
       headers: {
@@ -593,13 +601,16 @@ app.post('/api/pay', authRequired, async (req, res) => {
     });
 
     const data = await response.json();
+    console.log('PhonePe Response:', JSON.stringify(data, null, 2));
 
     if (data.success) {
       res.json({ redirectUrl: data.data.instrumentResponse.redirectInfo.url });
     } else {
+      console.error('PhonePe error message:', data.message);
       res.status(500).json({ error: data.message });
     }
   } catch (error) {
+    console.error('Payment initiation error:', error);
     res.status(500).json({ error: error.message });
   }
 });

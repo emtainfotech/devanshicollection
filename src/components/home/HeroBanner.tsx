@@ -90,7 +90,7 @@ const HeroBanner = () => {
 
   return (
     // Completely removed the `py-4` margin here so it touches the header
-    <section className="relative w-full overflow-hidden bg-background">
+    <section className="relative w-full overflow-hidden">
       <style>{`.hide-scroll::-webkit-scrollbar { display: none; }`}</style>
       
       <div
