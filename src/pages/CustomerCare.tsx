@@ -91,19 +91,40 @@ const CustomerCare = () => {
             </Accordion>
 
             <div className="mt-12 p-6 bg-secondary/30 rounded-2xl space-y-4">
-              <h3 className="font-display font-bold text-sm uppercase tracking-widest">Other Ways to Reach Us</h3>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 text-sm font-body">
-                  <Mail className="h-4 w-4 text-primary" />
-                  <span>support@devanshicollection.com</span>
+              <h3 className="font-display font-bold text-sm uppercase tracking-widest">Contact Information</h3>
+              <div className="space-y-4">
+                <div className="flex items-start gap-3 text-sm font-body">
+                  <Mail className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-foreground">Email Support</p>
+                    <p className="text-muted-foreground">support@devanshicollection.com</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm font-body">
-                  <Phone className="h-4 w-4 text-primary" />
-                  <span>+91 98765 43210</span>
+                <div className="flex items-start gap-3 text-sm font-body">
+                  <Phone className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-foreground">Phone / WhatsApp</p>
+                    <p className="text-muted-foreground">+91 9691966184</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 text-sm font-body">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span>Mon - Sat: 10:00 AM - 7:00 PM</span>
+                <div className="flex items-start gap-3 text-sm font-body">
+                  <Clock className="h-5 w-5 text-primary mt-0.5" />
+                  <div>
+                    <p className="font-semibold text-foreground">Working Hours</p>
+                    <p className="text-muted-foreground">Mon - Sat: 10:00 AM - 7:00 PM</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3 text-sm font-body border-t border-border/50 pt-4">
+                  <div className="h-5 w-5 text-primary mt-0.5">📍</div>
+                  <div>
+                    <p className="font-semibold text-foreground">Registered Office Address</p>
+                    <p className="text-muted-foreground leading-relaxed">
+                      Devanshi collection<br />
+                      Near Union Bank and Gurukrupa Lab,<br />
+                      In-front of Madhuram Cosmetics, Ganesh Chowk,<br />
+                      Harda, 461331, Madhya Pradesh, India
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
