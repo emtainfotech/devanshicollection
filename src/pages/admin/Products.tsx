@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { Plus, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, Eye } from 'lucide-react';
 import { formatINR, toINRValue } from '@/lib/pricing';
 import { api } from '@/lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -15,7 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const AdminProducts = () => {
   const queryClient = useQueryClient();
   const [editingProduct, setEditingProduct] = useState<any>(null);
+  const [viewingProduct, setViewingProduct] = useState<any>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState({ category: 'all', status: 'all' });
 
@@ -97,6 +99,11 @@ const AdminProducts = () => {
       toast.success('Product deleted');
     },
   });
+
+  const openView = (p: any) => {
+    setViewingProduct(p);
+    setViewDialogOpen(true);
+  };
 
   const openNew = () => {
     setEditingProduct({
@@ -218,7 +225,8 @@ const AdminProducts = () => {
                   </span>
                 </td>
                 <td className="p-3 text-right">
-                  <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-accent rounded transition-colors"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => openView(p)} className="p-1.5 hover:bg-accent rounded transition-colors text-blue-600" title="View Details"><Eye className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => openEdit(p)} className="p-1.5 hover:bg-accent rounded transition-colors ml-1" title="Edit Product"><Pencil className="h-3.5 w-3.5" /></button>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <button className="p-1.5 hover:bg-destructive/10 rounded transition-colors text-destructive ml-1"><Trash2 className="h-3.5 w-3.5" /></button>
@@ -301,6 +309,31 @@ const AdminProducts = () => {
                 <Label className="font-body text-xs">Upload Images From System</Label>
                 <Input type="file" accept="image/*" multiple onChange={(e) => handleProductImagesFromSystem(e.target.files)} />
               </div>
+              
+              {editingProduct.images && (
+                <div className="mt-2">
+                  <Label className="font-body text-[10px] uppercase tracking-wider text-muted-foreground">Current Images ({editingProduct.images.split('\n').filter(Boolean).length})</Label>
+                  <div className="grid grid-cols-5 gap-2 mt-1">
+                    {editingProduct.images.split('\n').filter(Boolean).map((img: string, i: number) => (
+                      <div key={i} className="relative aspect-square rounded border border-border overflow-hidden group">
+                        <img src={img.trim()} alt="" className="w-full h-full object-cover" />
+                        <button 
+                          type="button"
+                          onClick={() => {
+                            const current = editingProduct.images.split('\n').filter(Boolean);
+                            current.splice(i, 1);
+                            setEditingProduct({ ...editingProduct, images: current.join('\n') });
+                          }}
+                          className="absolute top-0 right-0 p-1 bg-red-500 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 text-sm font-body">
                   <input type="checkbox" checked={editingProduct.is_featured} onChange={(e) => setEditingProduct({ ...editingProduct, is_featured: e.target.checked })} />Featured
@@ -317,6 +350,98 @@ const AdminProducts = () => {
                 <Button type="submit" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save Product'}</Button>
               </div>
             </form>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Product Details</DialogTitle>
+          </DialogHeader>
+          {viewingProduct && (
+            <div className="space-y-6">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Basic Info</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Name:</span> {viewingProduct.name}</p>
+                    <p><span className="font-medium">Slug:</span> {viewingProduct.slug}</p>
+                    <p><span className="font-medium">Category:</span> {(viewingProduct as any).categories?.name || '—'}</p>
+                    <p><span className="font-medium">Status:</span> 
+                      <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${viewingProduct.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                        {viewingProduct.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Pricing & Inventory</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Price:</span> {formatINR(toINRValue(Number(viewingProduct.price)))}</p>
+                    <p><span className="font-medium">Discount:</span> {viewingProduct.discount}%</p>
+                    <p><span className="font-medium">Final Price:</span> {formatINR(toINRValue(Number(viewingProduct.price) * (1 - viewingProduct.discount / 100)))}</p>
+                    <p><span className="font-medium">Stock:</span> {viewingProduct.stock} units</p>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Description</h3>
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{viewingProduct.description || 'No description provided.'}</p>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Variants</h3>
+                  <div className="space-y-2">
+                    <p><span className="font-medium">Sizes:</span> {viewingProduct.sizes?.length > 0 ? viewingProduct.sizes.join(', ') : 'None'}</p>
+                    <p><span className="font-medium">Colors:</span> {viewingProduct.colors?.length > 0 ? viewingProduct.colors.join(', ') : 'None'}</p>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Features</h3>
+                  <div className="flex gap-4">
+                    {viewingProduct.is_featured && <span className="text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded">Featured</span>}
+                    {viewingProduct.is_trending && <span className="text-xs bg-orange-100 text-orange-700 px-2 py-1 rounded">Trending</span>}
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Product Images ({viewingProduct.images?.length || 0})</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {viewingProduct.images?.map((img: string, i: number) => (
+                    <div key={i} className="aspect-square rounded-lg border border-border overflow-hidden bg-secondary/20 group">
+                      <img 
+                        src={img} 
+                        alt={`${viewingProduct.name} - ${i + 1}`} 
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105"
+                        onClick={() => window.open(img, '_blank')}
+                      />
+                    </div>
+                  ))}
+                  {(!viewingProduct.images || viewingProduct.images.length === 0) && (
+                    <div className="col-span-full py-8 text-center text-muted-foreground border border-dashed rounded-lg">
+                      No images uploaded for this product.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {viewingProduct.video_url && (
+                <div>
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">Video</h3>
+                  <a href={viewingProduct.video_url} target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline flex items-center gap-1">
+                    Watch Product Video
+                  </a>
+                </div>
+              )}
+
+              <div className="flex justify-end pt-4 border-t">
+                <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>

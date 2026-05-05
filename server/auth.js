@@ -25,18 +25,13 @@ export function authRequired(req, res, next) {
 }
 
 export function adminRequired(req, res, next) {
-  try {
-    console.log('Admin middleware triggered');
-    if (!req.user || req.user.role !== 'admin') {
-      console.log('Admin auth failed', req.user);
-      return res.status(403).json({ error: 'Forbidden' });
-    }
-    console.log('Admin auth success');
-    next();
-  } catch (err) {
-    console.log('Admin middleware error', err);
-    next(err);
+  console.log('Admin middleware triggered');
+  if (!req.user || req.user.role !== 'admin') {
+    console.log('Admin auth failed', req.user);
+    return res.status(403).json({ error: 'Forbidden' });
   }
+  console.log('Admin auth success');
+  next();
 }
 
 export async function verifyPassword(email, password) {

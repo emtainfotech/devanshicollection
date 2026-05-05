@@ -17,6 +17,10 @@ import passport from 'passport';
 import session from 'express-session';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 
+const asyncHandler = (fn) => (req, res, next) => {
+  Promise.resolve(fn(req, res, next)).catch(next);
+};
+
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -164,7 +168,7 @@ app.get('/api/auth/google/callback',
   }
 );
 
-app.get('/api/auth/me', authRequired, async (req, res) => {
+app.get('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
   const users = await query('SELECT id, email, created_at FROM users WHERE id = ?', [req.user.id]);
   const user = users?.[0];
   if (!user) return res.json({ user: null });
@@ -178,13 +182,13 @@ app.get('/api/auth/me', authRequired, async (req, res) => {
   res.json({
     user: { ...user, first_name: profile.first_name, last_name: profile.last_name, phone: profile.phone, role }
   });
-});
+}));
 
 // Public data
-app.get('/api/categories', async (_req, res) => {
+app.get('/api/categories', asyncHandler(async (_req, res) => {
   const rows = await query('SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC');
   res.json(rows);
-});
+}));
 
 app.get('/api/products', async (req, res) => {
   const { category } = req.query;
@@ -888,7 +892,7 @@ app.get('/api/invoice/:orderId', authRequired, async (req, res) => {
 });
 
 // Admin endpoints
-app.get('/api/admin/stats', authRequired, adminRequired, async (_req, res) => {
+app.get('/api/admin/stats', authRequired, adminRequired, asyncHandler(async (_req, res) => {
   const [p, o, c, r] = await Promise.all([
     query('SELECT COUNT(*) as c FROM products'),
     query('SELECT COUNT(*) as c, COALESCE(SUM(total_amount),0) as s FROM orders'),
@@ -902,7 +906,7 @@ app.get('/api/admin/stats', authRequired, adminRequired, async (_req, res) => {
     revenue: Number(o[0].s || 0),
     reviews: Number(r[0].c || 0),
   });
-});
+}));
 
 app.get('/api/admin/orders', authRequired, adminRequired, async (_req, res) => {
   const rows = await query(`
@@ -1343,6 +1347,10 @@ app.get('*', (req, res) => {
 process.on('uncaughtException', (err) => {
   console.error('[UNCAUGHT EXCEPTION]', err);
   process.exit(1);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('[UNHANDLED REJECTION]', reason);
 });
 
 const port = Number(process.env.PORT || 4000);

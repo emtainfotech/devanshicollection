@@ -15,6 +15,15 @@ export function getPool() {
       queueLimit: 0,
       timezone: 'Z',
       decimalNumbers: true,
+      enableKeepAlive: true,
+      keepAliveInitialDelay: 10000
+    });
+
+    pool.on('error', (err) => {
+      console.error('[DB Pool Error]', err);
+      if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+        pool = null; // Clear pool so it recreates on next request
+      }
     });
 
     console.log('Connecting to database with the following details:');
@@ -25,19 +34,29 @@ export function getPool() {
 
     // Heartbeat
     setInterval(() => {
-      pool.query('SELECT 1').catch((err) => {
-        console.error('[DB Heartbeat Error]', err);
-      });
-    }, 5000);
+      if (pool) {
+        pool.query('SELECT 1').catch((err) => {
+          console.error('[DB Heartbeat Error]', err);
+          if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET') {
+            pool = null;
+          }
+        });
+      }
+    }, 10000);
   }
   return pool;
 }
 
-export async function query(sql, params = []) {
+export async function query(sql, params = [], retries = 2) {
   try {
     const [rows] = await getPool().execute(sql, params);
     return rows;
   } catch (err) {
+    if (retries > 0 && (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT')) {
+      console.warn(`[DB Query Retry] ${err.code}, retrying... (${retries} left)`);
+      pool = null; // Force pool recreation
+      return await query(sql, params, retries - 1);
+    }
     // Gracefully handle duplicate column errors during schema sync
     if (err.code === 'ER_DUP_FIELDNAME') {
       console.warn(`[DB Schema Sync] Ignoring duplicate column: ${err.sqlMessage}`);
