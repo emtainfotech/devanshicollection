@@ -196,9 +196,21 @@ app.get('/api/products', async (req, res) => {
   if (category) {
     const cat = await query('SELECT id FROM categories WHERE slug = ? LIMIT 1', [String(category)]);
     const catId = cat?.[0]?.id;
-    rows = await query('SELECT * FROM products WHERE is_active = 1 AND category_id = ? ORDER BY created_at DESC', [catId || '']);
+    rows = await query(`
+      SELECT p.*, c.name as category_name, c.slug as category_slug
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = 1 AND p.category_id = ?
+      ORDER BY p.created_at DESC
+    `, [catId || '']);
   } else {
-    rows = await query('SELECT * FROM products WHERE is_active = 1 ORDER BY created_at DESC');
+    rows = await query(`
+      SELECT p.*, c.name as category_name, c.slug as category_slug
+      FROM products p
+      LEFT JOIN categories c ON p.category_id = c.id
+      WHERE p.is_active = 1
+      ORDER BY p.created_at DESC
+    `);
   }
   res.json(
     rows.map((p) => ({
@@ -206,12 +218,18 @@ app.get('/api/products', async (req, res) => {
       sizes: safeJson(p.sizes) || [],
       colors: safeJson(p.colors) || [],
       images: safeJson(p.images) || [],
+      categories: p.category_id ? { name: p.category_name, slug: p.category_slug } : null
     }))
   );
 });
 
 app.get('/api/products/:slug', async (req, res) => {
-  const rows = await query('SELECT * FROM products WHERE slug = ? LIMIT 1', [req.params.slug]);
+  const rows = await query(`
+    SELECT p.*, c.name as category_name, c.slug as category_slug
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    WHERE p.slug = ? LIMIT 1
+  `, [req.params.slug]);
   const p = rows?.[0];
   if (!p) return res.status(404).json({ error: 'Not found' });
   res.json({
@@ -219,6 +237,7 @@ app.get('/api/products/:slug', async (req, res) => {
     sizes: safeJson(p.sizes) || [],
     colors: safeJson(p.colors) || [],
     images: safeJson(p.images) || [],
+    categories: p.category_id ? { name: p.category_name, slug: p.category_slug } : null
   });
 });
 
@@ -996,8 +1015,19 @@ app.patch('/api/admin/customer-queries/:id', authRequired, adminRequired, async 
 });
 
 app.get('/api/admin/products', authRequired, adminRequired, async (_req, res) => {
-  const rows = await query('SELECT * FROM products ORDER BY created_at DESC');
-  res.json(rows.map((p) => ({ ...p, sizes: safeJson(p.sizes) || [], colors: safeJson(p.colors) || [], images: safeJson(p.images) || [] })));
+  const rows = await query(`
+    SELECT p.*, c.name as category_name, c.slug as category_slug
+    FROM products p
+    LEFT JOIN categories c ON p.category_id = c.id
+    ORDER BY p.created_at DESC
+  `);
+  res.json(rows.map((p) => ({ 
+    ...p, 
+    sizes: safeJson(p.sizes) || [], 
+    colors: safeJson(p.colors) || [], 
+    images: safeJson(p.images) || [],
+    categories: p.category_id ? { name: p.category_name, slug: p.category_slug } : null
+  })));
 });
 
 app.post('/api/admin/products', authRequired, adminRequired, async (req, res, next) => {
