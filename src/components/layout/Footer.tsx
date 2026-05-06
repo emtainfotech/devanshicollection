@@ -1,10 +1,11 @@
 import { Link } from 'react-router-dom';
 import { Instagram, Facebook, Twitter, Youtube } from 'lucide-react';
 import BrandLogo from './BrandLogo';
-import { useSiteSettings } from '@/hooks/useData';
+import { useSiteSettings, useCategories } from '@/hooks/useData';
 
 const Footer = () => {
   const { data: settings } = useSiteSettings();
+  const { data: categories } = useCategories({ hasProducts: true });
 
   const socialLinks = [
     { icon: Instagram, url: (settings as any)?.instagram_url, label: 'Instagram' },
@@ -33,10 +34,16 @@ const Footer = () => {
           <div>
             <h3 className="font-display text-base font-semibold mb-5">Shop</h3>
             <ul className="space-y-3 text-sm font-body text-muted-foreground">
-              <li><Link to="/products?category=dresses" className="hover:text-primary transition-colors">Dresses</Link></li>
-              <li><Link to="/products?category=tops" className="hover:text-primary transition-colors">Tops</Link></li>
-              <li><Link to="/products?category=bottoms" className="hover:text-primary transition-colors">Bottoms</Link></li>
-              <li><Link to="/products?category=ethnic-wear" className="hover:text-primary transition-colors">Ethnic Wear</Link></li>
+              {categories?.map((category: any) => (
+                <li key={category.id}>
+                  <Link 
+                    to={`/products?category=${category.slug}`} 
+                    className="hover:text-primary transition-colors"
+                  >
+                    {category.name}
+                  </Link>
+                </li>
+              ))}
               <li><Link to="/products" className="hover:text-primary transition-colors">All Products</Link></li>
             </ul>
           </div>

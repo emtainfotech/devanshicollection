@@ -185,8 +185,21 @@ app.get('/api/auth/me', authRequired, asyncHandler(async (req, res) => {
 }));
 
 // Public data
-app.get('/api/categories', asyncHandler(async (_req, res) => {
-  const rows = await query('SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC');
+app.get('/api/categories', asyncHandler(async (req, res) => {
+  const hasProducts = req.query.has_products === 'true';
+  let sql = 'SELECT * FROM categories WHERE is_active = 1';
+  
+  if (hasProducts) {
+    sql = `
+      SELECT DISTINCT c.* 
+      FROM categories c
+      INNER JOIN products p ON c.id = p.category_id
+      WHERE c.is_active = 1 AND p.is_active = 1
+    `;
+  }
+  
+  sql += ' ORDER BY sort_order ASC';
+  const rows = await query(sql);
   res.json(rows);
 }));
 

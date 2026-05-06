@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { api } from '@/lib/api';
 
-export function useCategories() {
+export function useCategories(options?: { hasProducts?: boolean }) {
   return useQuery({
-    queryKey: ['categories'],
+    queryKey: ['categories', options],
     queryFn: async () => {
-      return await api.get('/categories');
+      const url = options?.hasProducts ? '/categories?has_products=true' : '/categories';
+      return await api.get(url);
     },
   });
 }
