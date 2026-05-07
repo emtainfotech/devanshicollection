@@ -666,7 +666,15 @@ app.post('/api/pay', authRequired, async (req, res) => {
     const accessToken = await getPhonePeToken();
 
     // 5. Prepare PhonePe V2 Payload
-    const amountInPaise = Math.round(parseFloat(order.total_amount) * 100);
+    let amountInPaise = Math.round(parseFloat(order.total_amount) * 100);
+    
+    // PhonePe requires a minimum of 100 paise (₹1). 
+    // For testing small amounts (like ₹2), ensure it's at least 100.
+    if (amountInPaise < 100) {
+      console.warn(`[PhonePe V2] Warning: Order amount ₹${order.total_amount} is too low. Forcing minimum 100 paise (₹1) for payment gateway.`);
+      amountInPaise = 100;
+    }
+
     const payload = {
       merchantOrderId: merchantOrderId,
       amount: amountInPaise,
