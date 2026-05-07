@@ -13,6 +13,7 @@ const PaymentCallback = () => {
 
   useEffect(() => {
     const merchantTransactionId = searchParams.get('merchantTransactionId') || searchParams.get('transactionId');
+    const merchantOrderId = searchParams.get('merchantOrderId');
     const orderIdFromUrl = searchParams.get('orderId');
     
     // Note: PhonePe might send transaction status in POST body to callbackUrl, 

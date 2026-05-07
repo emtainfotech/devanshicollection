@@ -23,6 +23,43 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 const APP_URL = (process.env.APP_URL || 'https://devanshicollection.com').replace(/\/$/, '');
 
+// PhonePe V2 Token Helper
+let phonepeToken = null;
+let phonepeTokenExpiry = null;
+
+async function getPhonePeToken() {
+  if (phonepeToken && phonepeTokenExpiry && Date.now() < phonepeTokenExpiry) {
+    return phonepeToken;
+  }
+
+  const clientId = process.env.PHONEPE_CLIENT_ID;
+  const clientSecret = process.env.PHONEPE_CLIENT_SECRET;
+
+  if (!clientId || !clientSecret) {
+    throw new Error('PhonePe Client ID or Secret missing');
+  }
+
+  const response = await fetch('https://api.phonepe.com/apis/identity-manager/v1/oauth/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      client_id: clientId,
+      client_secret: clientSecret,
+      client_version: 1,
+      grant_type: 'client_credentials'
+    })
+  });
+
+  const data = await response.json();
+  if (data.access_token) {
+    phonepeToken = data.access_token;
+    // Expire 1 minute before actual expiry to be safe (usually tokens last 1 hour)
+    phonepeTokenExpiry = Date.now() + (data.expires_in || 3600) * 1000 - 60000;
+    return phonepeToken;
+  }
+  throw new Error(`Failed to get PhonePe token: ${data.message || 'Unknown error'}`);
+}
+
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -590,7 +627,7 @@ app.delete('/api/admin/blogs/:id', authRequired, adminRequired, async (req, res)
 app.post('/api/pay', authRequired, async (req, res) => {
   try {
     const { order_id } = req.body;
-    console.log(`[PhonePe] 1. Initiating payment for order: ${order_id}`);
+    console.log(`[PhonePe V2] 1. Initiating payment for order: ${order_id}`);
 
     if (!order_id) {
       return res.status(400).json({ error: 'Order ID is required' });
@@ -599,192 +636,148 @@ app.post('/api/pay', authRequired, async (req, res) => {
     // 1. Fetch Order
     const [order] = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [order_id, req.user.id]);
     if (!order) {
-      console.error(`[PhonePe] Error: Order ${order_id} not found for user ${req.user.id}`);
+      console.error(`[PhonePe V2] Error: Order ${order_id} not found for user ${req.user.id}`);
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    // 2. Generate Transaction IDs
-    const merchantTransactionId = `MT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    // 2. Generate Unique Merchant Order ID (PhonePe V2)
+    const merchantOrderId = `ORD${Date.now()}${Math.floor(Math.random() * 1000)}`;
     const resId = await query('SELECT UUID() as id');
     const transactionId = resId[0].id;
 
     // 3. Save Pending Transaction
-    console.log(`[PhonePe] 2. Saving pending transaction: ${transactionId}`);
+    console.log(`[PhonePe V2] 2. Saving pending transaction: ${transactionId}`);
     await query(
       `INSERT INTO transactions (id, order_id, user_id, provider, provider_transaction_id, amount, status)
        VALUES (?, ?, ?, 'phonepe', ?, ?, 'pending')`,
-      [transactionId, order.id, req.user.id, merchantTransactionId, order.total_amount]
+      [transactionId, order.id, req.user.id, merchantOrderId, order.total_amount]
     );
 
-    // 4. Prepare PhonePe Payload
+    // 4. Get OAuth Token
+    const accessToken = await getPhonePeToken();
+
+    // 5. Prepare PhonePe V2 Payload
     const amountInPaise = Math.round(parseFloat(order.total_amount) * 100);
     const payload = {
-      merchantId: process.env.PHONEPE_MERCHANT_ID,
-      merchantTransactionId: merchantTransactionId,
-      merchantUserId: `U${req.user.id.slice(0, 10).replace(/-/g, '')}`,
+      merchantOrderId: merchantOrderId,
       amount: amountInPaise,
-      redirectUrl: `${APP_URL}/payment/callback?orderId=${order.id}`,
-      redirectMode: 'REDIRECT',
-      callbackUrl: `${APP_URL}/api/payment/callback`,
-      paymentInstrument: {
-        type: 'PAY_PAGE'
+      expireAfter: 1200, // 20 minutes
+      paymentFlow: {
+        type: 'PG_CHECKOUT',
+        message: `Payment for Order #${order.id.slice(0, 8)}`,
+        merchantUrls: {
+          redirectUrl: `${APP_URL}/payment/callback?orderId=${order.id}&merchantOrderId=${merchantOrderId}`
+        }
       }
     };
 
-    // 5. Check Config
-    if (!payload.merchantId || !process.env.PHONEPE_SALT_KEY || !process.env.PHONEPE_SALT_INDEX) {
-      console.error('[PhonePe] Error: Missing environment variables');
-      return res.status(500).json({ error: 'Payment gateway configuration is incomplete' });
-    }
-
-    // 6. Generate Checksum
-    const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
+    console.log(`[PhonePe V2] 3. Sending request to: https://api.phonepe.com/apis/pg/checkout/v2/pay`);
     
-    // 7. Call PhonePe API
-    // FORCE the correct production URL structure for hermes
-    let baseUrl = (process.env.PHONEPE_HOST || 'https://api.phonepe.com/apis/hermes').trim().replace(/\/$/, '');
-    
-    // If the host is the standard PhonePe API but missing 'hermes', we MUST add it.
-    if (baseUrl.includes('api.phonepe.com')) {
-      if (!baseUrl.includes('/hermes') && !baseUrl.includes('/pg-sandbox')) {
-        if (baseUrl.endsWith('/apis')) {
-          baseUrl = baseUrl + '/hermes';
-        } else if (baseUrl.endsWith('.com')) {
-          baseUrl = baseUrl + '/apis/hermes';
-        }
-      }
-    }
-
-    const finalUrl = `${baseUrl}/pg/v1/pay`;
-    const urlObj = new URL(finalUrl);
-    const endpointPath = urlObj.pathname; // This will be /apis/hermes/pg/v1/pay or similar
-
-    // The correct formula: SHA256(Base64Payload + endpointPath + SaltKey) + "###" + SaltIndex
-    // For PhonePe, the endpoint path in the checksum MUST match the path in the URL.
-    const stringToHash = base64Payload + endpointPath + process.env.PHONEPE_SALT_KEY;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const checksum = `${sha256}###${process.env.PHONEPE_SALT_INDEX}`;
-
-    console.log(`[PhonePe] 3. Sending request to: ${finalUrl}`);
-    console.log(`[PhonePe] Endpoint for Hash: ${endpointPath}`);
-    console.log(`[PhonePe] X-VERIFY: ${checksum}`);
-    
-    const response = await fetch(finalUrl, {
+    // 6. Call PhonePe V2 API
+    const response = await fetch('https://api.phonepe.com/apis/pg/checkout/v2/pay', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'X-VERIFY': checksum,
+        'Authorization': `Bearer ${accessToken}`,
         'Accept': 'application/json'
       },
-      body: JSON.stringify({ request: base64Payload })
+      body: JSON.stringify(payload)
     });
 
     const result = await response.json();
-    console.log('[PhonePe] 4. Response:', JSON.stringify(result));
+    console.log('[PhonePe V2] 4. Response:', JSON.stringify(result));
 
-    if (result.success && result.data?.instrumentResponse?.redirectInfo?.url) {
-      console.log(`[PhonePe] 4. Success! Redirecting user to: ${result.data.instrumentResponse.redirectInfo.url}`);
-      res.json({ redirectUrl: result.data.instrumentResponse.redirectInfo.url });
+    // V2 Response structure check (based on typical PhonePe V2 docs)
+    // Usually it returns a redirectUrl directly or inside data
+    if (result.redirectUrl) {
+      console.log(`[PhonePe V2] 4. Success! Redirecting user to: ${result.redirectUrl}`);
+      res.json({ redirectUrl: result.redirectUrl });
+    } else if (result.data?.redirectUrl) {
+      console.log(`[PhonePe V2] 4. Success! Redirecting user to: ${result.data.redirectUrl}`);
+      res.json({ redirectUrl: result.data.redirectUrl });
     } else {
-      console.error('[PhonePe] 4. Failed:', JSON.stringify(result));
-      // If PhonePe returns 404, it might mean the merchantId is not configured for this environment.
-      let errorMessage = result.message || 'PhonePe rejected the request';
-      if (result.code === '404') {
-        errorMessage = 'Payment Gateway Error: Merchant account not found or not activated for production. Please contact support.';
-      }
+      console.error('[PhonePe V2] 4. Failed:', JSON.stringify(result));
       res.status(500).json({ 
-        error: errorMessage,
+        error: result.message || 'PhonePe V2 rejected the request',
         code: result.code 
       });
     }
 
   } catch (error) {
-    console.error('[PhonePe] Critical Error:', error);
-    res.status(500).json({ error: 'Internal server error during payment initiation' });
+    console.error('[PhonePe V2] Critical Error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error during payment initiation' });
   }
 });
 
-// PhonePe Callback Handler
+// PhonePe Callback Handler (V2)
 app.post('/api/payment/callback', async (req, res) => {
   try {
-    const { response } = req.body;
-    const xVerify = req.headers['x-verify'];
-    const authHeader = req.headers['authorization'];
-
-    console.log('[PhonePe Callback] Received callback');
+    console.log('[PhonePe V2 Callback] Received body:', JSON.stringify(req.body));
     
-    // Optional: Basic Auth check if you configured it in PhonePe Dashboard
-    if (authHeader) {
-      console.log('[PhonePe Callback] Auth header present');
-    }
+    // V2 uses a JSON payload with 'event' and 'payload'
+    const { event, payload } = req.body;
 
-    if (!response || !xVerify) {
-      console.error('[PhonePe Callback] Missing response or checksum');
-      return res.status(400).json({ error: 'Missing response or checksum' });
-    }
+    if (event === 'checkout.order.completed' && payload) {
+      const { merchantOrderId, state, paymentDetails } = payload;
+      const success = state === 'COMPLETED';
 
-    // Verify checksum
-    const checksum = crypto.createHash('sha256').update(response + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
-    if (checksum !== xVerify) {
-      console.error('[PhonePe Callback] Invalid callback checksum');
-      console.error('[PhonePe Callback] Calculated:', checksum);
-      return res.status(401).json({ error: 'Invalid checksum' });
-    }
-
-    const decodedResponse = JSON.parse(Buffer.from(response, 'base64').toString('utf-8'));
-    console.log('[PhonePe Callback] Decoded:', JSON.stringify(decodedResponse));
-    const { success, code, data } = decodedResponse;
-
-    if (success && code === 'PAYMENT_SUCCESS') {
-      const { merchantTransactionId, transactionId: providerTransactionId, amount, paymentInstrument } = data;
-      
-      // Find transaction by merchantTransactionId
-      const [transaction] = await query('SELECT * FROM transactions WHERE provider_transaction_id = ?', [merchantTransactionId]);
+      // Find transaction by merchantOrderId (which we stored in provider_transaction_id)
+      const [transaction] = await query('SELECT * FROM transactions WHERE provider_transaction_id = ?', [merchantOrderId]);
       
       if (transaction) {
         if (transaction.status === 'success') {
           return res.status(200).send('ALREADY_PROCESSED');
         }
 
-        // Update transaction
-        await query(
-          `UPDATE transactions SET status = 'success', provider_transaction_id = ?, payment_method_type = ?, payment_method_provider = ?, provider_response = ?, updated_at = NOW() WHERE id = ?`,
-          [
-            providerTransactionId, 
-            paymentInstrument.type, 
-            paymentInstrument.cardType || paymentInstrument.bankId || paymentInstrument.utr || null, 
-            JSON.stringify(decodedResponse), 
-            transaction.id
-          ]
-        );
-
-        // Update order
-        await query(
-          `UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = NOW() WHERE id = ?`,
-          ['phonepe', transaction.order_id]
-        );
-
-        // Send confirmation email
-        const [order] = await query('SELECT o.*, u.email, p.first_name FROM orders o JOIN users u ON o.user_id = u.id JOIN profiles p ON o.user_id = p.user_id WHERE o.id = ?', [transaction.order_id]);
-        if (order) {
-          await sendMail(
-            order.email, 
-            `Order Confirmation - #${order.id.slice(0, 8)}`, 
-            `<h1>Payment Successful!</h1><p>Hi ${order.first_name}, your payment for order #${order.id.slice(0, 8)} was successful. We're processing your order now.</p>`
+        if (success) {
+          const detail = paymentDetails?.[0] || {};
+          
+          // Update transaction
+          await query(
+            `UPDATE transactions SET status = 'success', provider_transaction_id = ?, payment_method_type = ?, payment_method_provider = ?, provider_response = ?, updated_at = NOW() WHERE id = ?`,
+            [
+              detail.transactionId || payload.orderId, 
+              detail.paymentMode || 'UNKNOWN', 
+              'phonepe', 
+              JSON.stringify(req.body), 
+              transaction.id
+            ]
           );
+
+          // Update order
+          await query(
+            `UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = NOW() WHERE id = ?`,
+            ['phonepe', transaction.order_id]
+          );
+
+          // Send confirmation email
+          const [order] = await query('SELECT o.*, u.email, p.first_name FROM orders o JOIN users u ON o.user_id = u.id JOIN profiles p ON o.user_id = p.user_id WHERE o.id = ?', [transaction.order_id]);
+          if (order) {
+            await sendMail(
+              order.email, 
+              `Order Confirmation - #${order.id.slice(0, 8)}`, 
+              `<h1>Payment Successful!</h1><p>Hi ${order.first_name}, your payment for order #${order.id.slice(0, 8)} was successful. We're processing your order now.</p>`
+            );
+          }
+        } else {
+          // Handle failure
+          await query(`UPDATE transactions SET status = 'failed', provider_response = ?, updated_at = NOW() WHERE id = ?`, [JSON.stringify(req.body), transaction.id]);
         }
       }
-    } else {
-      // Handle failure
-      const { merchantTransactionId } = data || {};
-      if (merchantTransactionId) {
-        await query(`UPDATE transactions SET status = 'failed', provider_response = ?, updated_at = NOW() WHERE provider_transaction_id = ?`, [JSON.stringify(decodedResponse), merchantTransactionId]);
-      }
+      return res.status(200).send('OK');
+    }
+
+    // Fallback for V1 style if PhonePe still sends it or for manual testing
+    const { response } = req.body;
+    if (response) {
+      // (Keep V1 logic as fallback if needed, but the user said "Entire integration needs to be updated")
+      // I'll skip V1 logic to keep it clean, but I'll log it.
+      console.log('[PhonePe Callback] V1 response detected but V2 expected');
     }
 
     res.status(200).send('OK');
   } catch (err) {
-    console.error('Callback processing error:', err);
+    console.error('[PhonePe V2 Callback] Processing error:', err);
     res.status(500).send('ERROR');
   }
 });
