@@ -7,7 +7,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import { WishlistProvider } from "@/contexts/WishlistContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { api } from '@/lib/api';
-import { setShippingRules } from '@/lib/pricing';
+import { updateShippingRules } from '@/lib/pricing';
 import { useEffect, useState } from 'react';
 import Loader from "@/components/ui/Loader";
 import Index from "./pages/Index";
@@ -114,7 +114,7 @@ const AppContent = () => {
 const App = () => {
   useEffect(() => {
     api.get('/shipping-rules').then(rules => {
-      setShippingRules(Number(rules.flat_shipping_rate), Number(rules.free_shipping_threshold));
+      updateShippingRules(Number(rules.flat_shipping_rate), Number(rules.free_shipping_threshold));
     }).catch(console.error);
   }, []);
 
