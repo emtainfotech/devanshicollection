@@ -13,37 +13,50 @@ const PaymentCallback = () => {
 
   useEffect(() => {
     const merchantTransactionId = searchParams.get('merchantTransactionId') || searchParams.get('transactionId');
+    const orderIdFromUrl = searchParams.get('orderId');
+    
     // Note: PhonePe might send transaction status in POST body to callbackUrl, 
     // but the redirectUrl is just a GET. We should poll our server for status.
     
-    // Extract order ID from merchantTransactionId if possible, or just wait for callback to hit server.
-    // For now, let's assume we can find the order status by polling our API.
-    
     let pollCount = 0;
-    const maxPolls = 10;
+    const maxPolls = 15; // Increased max polls for production stability
     
     const checkStatus = async () => {
       try {
-        // We need the orderId. If it's not in URL, we might need to find it by merchantTransactionId
-        // but our current API status endpoint takes orderId.
-        // Let's search for the latest order of the user or wait for the server to update.
+        let orderStatus = null;
+
+        if (orderIdFromUrl) {
+          // Use the specific order ID if available in URL
+          const response = await api.get(`/payment/status/${orderIdFromUrl}`);
+          orderStatus = response.status;
+        } else {
+          // Fallback to latest order if no orderId in URL
+          const orders = await api.get('/my-orders');
+          const latestOrder = orders[0];
+          if (latestOrder) {
+            orderStatus = latestOrder.payment_status;
+          }
+        }
         
-        const orders = await api.get('/my-orders');
-        const latestOrder = orders[0];
-        
-        if (latestOrder && latestOrder.payment_status === 'paid') {
+        if (orderStatus === 'paid') {
           setStatus('success');
           setMessage('Your payment was successful! Your order is being processed.');
         } else if (pollCount < maxPolls) {
           pollCount++;
-          setTimeout(checkStatus, 2000);
+          setTimeout(checkStatus, 3000); // Poll every 3 seconds
         } else {
           setStatus('failed');
           setMessage('We could not verify your payment status. Please check your account or raise a complaint if the amount was deducted.');
         }
       } catch (error) {
-        setStatus('failed');
-        setMessage('An error occurred while verifying payment.');
+        console.error('Status check error:', error);
+        if (pollCount < maxPolls) {
+          pollCount++;
+          setTimeout(checkStatus, 3000);
+        } else {
+          setStatus('failed');
+          setMessage('An error occurred while verifying payment.');
+        }
       }
     };
 

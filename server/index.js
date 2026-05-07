@@ -21,10 +21,12 @@ const asyncHandler = (fn) => (req, res, next) => {
   Promise.resolve(fn(req, res, next)).catch(next);
 };
 
+const APP_URL = (process.env.APP_URL || 'https://devanshicollection.com').replace(/\/$/, '');
+
 passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: `${process.env.APP_URL}/api/auth/google/callback`
+    callbackURL: `${APP_URL}/api/auth/google/callback`
   },
   async (accessToken, refreshToken, profile, done) => {
     try {
@@ -70,7 +72,6 @@ passport.deserializeUser(async (id, done) => {
 });
 
 const app = express();
-const APP_URL = process.env.APP_URL || 'https://devanshicollection.com';
 
 app.use(session({
   secret: process.env.JWT_SECRET || 'devanshi-secret',
@@ -622,9 +623,9 @@ app.post('/api/pay', authRequired, async (req, res) => {
       merchantTransactionId: merchantTransactionId,
       merchantUserId: `U${req.user.id.slice(0, 10).replace(/-/g, '')}`,
       amount: amountInPaise,
-      redirectUrl: `${process.env.APP_URL}/payment/callback`,
+      redirectUrl: `${APP_URL}/payment/callback?orderId=${order.id}`,
       redirectMode: 'REDIRECT',
-      callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
+      callbackUrl: `${APP_URL}/api/payment/callback`,
       paymentInstrument: {
         type: 'PAY_PAGE'
       }
@@ -651,8 +652,14 @@ app.post('/api/pay', authRequired, async (req, res) => {
     let baseUrl = (process.env.PHONEPE_HOST || 'https://api.phonepe.com/apis/hermes').trim().replace(/\/$/, '');
     
     // If the host is the standard PhonePe API but missing 'hermes', we MUST add it.
-    if (baseUrl.includes('api.phonepe.com') && !baseUrl.includes('/hermes')) {
-      baseUrl = baseUrl.replace('/apis', '/apis/hermes');
+    if (baseUrl.includes('api.phonepe.com')) {
+      if (!baseUrl.includes('/hermes')) {
+        if (baseUrl.endsWith('/apis')) {
+          baseUrl = baseUrl + '/hermes';
+        } else if (baseUrl.endsWith('.com')) {
+          baseUrl = baseUrl + '/apis/hermes';
+        }
+      }
     }
 
     const finalUrl = `${baseUrl}/pg/v1/pay`;
@@ -694,18 +701,24 @@ app.post('/api/payment/callback', async (req, res) => {
     const { response } = req.body;
     const xVerify = req.headers['x-verify'];
 
+    console.log('[PhonePe Callback] Received callback');
+    console.log('[PhonePe Callback] X-VERIFY:', xVerify);
+
     if (!response || !xVerify) {
+      console.error('[PhonePe Callback] Missing response or checksum');
       return res.status(400).json({ error: 'Missing response or checksum' });
     }
 
     // Verify checksum
     const checksum = crypto.createHash('sha256').update(response + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
     if (checksum !== xVerify) {
-      console.error('Invalid callback checksum');
+      console.error('[PhonePe Callback] Invalid callback checksum');
+      console.error('[PhonePe Callback] Calculated:', checksum);
       return res.status(401).json({ error: 'Invalid checksum' });
     }
 
     const decodedResponse = JSON.parse(Buffer.from(response, 'base64').toString('utf-8'));
+    console.log('[PhonePe Callback] Decoded:', JSON.stringify(decodedResponse));
     const { success, code, data } = decodedResponse;
 
     if (success && code === 'PAYMENT_SUCCESS') {
@@ -764,7 +777,7 @@ app.post('/api/payment/callback', async (req, res) => {
 
 // Handle cases where PhonePe might still try to POST to the redirectUrl
 app.post('/payment/callback', (req, res) => {
-  res.redirect(303, `${process.env.APP_URL}/payment/callback`);
+  res.redirect(303, `${APP_URL}/payment/callback`);
 });
 
 // Verify payment status (polling or redirect)
