@@ -709,9 +709,14 @@ app.post('/api/payment/callback', async (req, res) => {
   try {
     const { response } = req.body;
     const xVerify = req.headers['x-verify'];
+    const authHeader = req.headers['authorization'];
 
     console.log('[PhonePe Callback] Received callback');
-    console.log('[PhonePe Callback] X-VERIFY:', xVerify);
+    
+    // Optional: Basic Auth check if you configured it in PhonePe Dashboard
+    if (authHeader) {
+      console.log('[PhonePe Callback] Auth header present');
+    }
 
     if (!response || !xVerify) {
       console.error('[PhonePe Callback] Missing response or checksum');
