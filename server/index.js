@@ -589,117 +589,178 @@ app.delete('/api/admin/blogs/:id', authRequired, adminRequired, async (req, res)
 app.post('/api/pay', authRequired, async (req, res) => {
   try {
     const { order_id } = req.body;
-    console.log('Received payment request for order:', order_id);
-    if (!order_id) return res.status(400).json({ error: 'Order ID is required' });
+    console.log(`[PhonePe] 1. Initiating payment for order: ${order_id}`);
 
+    if (!order_id) {
+      return res.status(400).json({ error: 'Order ID is required' });
+    }
+
+    // 1. Fetch Order
     const [order] = await query('SELECT * FROM orders WHERE id = ? AND user_id = ?', [order_id, req.user.id]);
     if (!order) {
-      console.error('Order not found for ID:', order_id);
+      console.error(`[PhonePe] Error: Order ${order_id} not found for user ${req.user.id}`);
       return res.status(404).json({ error: 'Order not found' });
     }
 
-    const merchantTransactionId = `MT_${order.id.slice(0, 8)}_${Date.now()}`;
-    const transactionId = (await query('SELECT UUID() as id'))[0].id;
+    // 2. Generate Transaction IDs
+    const merchantTransactionId = `MT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const resId = await query('SELECT UUID() as id');
+    const transactionId = resId[0].id;
 
-    console.log('Inserting transaction:', transactionId);
+    // 3. Save Pending Transaction
+    console.log(`[PhonePe] 2. Saving pending transaction: ${transactionId}`);
     await query(
-      `INSERT INTO transactions (id, order_id, user_id, provider_transaction_id, amount, currency)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [transactionId, order.id, req.user.id, merchantTransactionId, order.total_amount, 'INR']
+      `INSERT INTO transactions (id, order_id, user_id, provider, provider_transaction_id, amount, status)
+       VALUES (?, ?, ?, 'phonepe', ?, ?, 'pending')`,
+      [transactionId, order.id, req.user.id, merchantTransactionId, order.total_amount]
     );
 
+    // 4. Prepare PhonePe Payload
+    const amountInPaise = Math.round(parseFloat(order.total_amount) * 100);
     const payload = {
       merchantId: process.env.PHONEPE_MERCHANT_ID,
-      merchantTransactionId,
-      merchantUserId: req.user.id,
-      amount: Math.round(Number(order.total_amount) * 100), // Amount in paise as a strict integer
+      merchantTransactionId: merchantTransactionId,
+      merchantUserId: `U${req.user.id.slice(0, 10).replace(/-/g, '')}`,
+      amount: amountInPaise,
       redirectUrl: `${process.env.APP_URL}/payment/callback`,
-      redirectMode: 'GET',
+      redirectMode: 'REDIRECT',
       callbackUrl: `${process.env.APP_URL}/api/payment/callback`,
       paymentInstrument: {
-        type: 'PAY_PAGE',
-      },
+        type: 'PAY_PAGE'
+      }
     };
 
-    console.log('Payload for PhonePe:', JSON.stringify(payload, null, 2));
+    // 5. Check Config
+    if (!payload.merchantId || !process.env.PHONEPE_SALT_KEY || !process.env.PHONEPE_SALT_INDEX) {
+      console.error('[PhonePe] Error: Missing environment variables');
+      return res.status(500).json({ error: 'Payment gateway configuration is incomplete' });
+    }
 
+    // 6. Generate Checksum
     const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-    const checksum = crypto.createHash('sha256').update(base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
+    // The correct formula: SHA256(Base64Payload + "/pg/v1/pay" + SaltKey) + "###" + SaltIndex
+    const stringToHash = base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY;
+    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+    const checksum = `${sha256}###${process.env.PHONEPE_SALT_INDEX}`;
 
-    console.log('Initiating request to PhonePe...');
-    const response = await fetch(`${process.env.PHONEPE_HOST}/pg/v1/pay`, {
+    console.log(`[PhonePe] 3. Sending request to: ${process.env.PHONEPE_HOST}/pg/v1/pay`);
+    console.log(`[PhonePe] X-VERIFY: ${checksum}`);
+    
+    // 7. Call PhonePe API
+    // The correct production base URL is https://api.phonepe.com/apis/hermes
+    // We append /pg/v1/pay to it.
+    let baseUrl = (process.env.PHONEPE_HOST || 'https://api.phonepe.com/apis/hermes').trim().replace(/\/$/, '');
+    
+    // Safety check: If the user provided a very short URL, they might have missed 'hermes'
+    if (baseUrl === 'https://api.phonepe.com/apis') {
+      baseUrl = 'https://api.phonepe.com/apis/hermes';
+    }
+
+    const finalUrl = `${baseUrl}/pg/v1/pay`;
+    console.log(`[PhonePe] 3. Sending request to: ${finalUrl}`);
+    
+    const response = await fetch(finalUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'X-VERIFY': checksum,
+        'Accept': 'application/json'
       },
-      body: JSON.stringify({ request: base64Payload }),
+      body: JSON.stringify({ request: base64Payload })
     });
 
-    const data = await response.json();
-    console.log('PhonePe Response:', JSON.stringify(data, null, 2));
+    const result = await response.json();
+    console.log('[PhonePe] 4. Response:', JSON.stringify(result));
 
-    if (data.success) {
-      res.json({ redirectUrl: data.data.instrumentResponse.redirectInfo.url });
+    if (result.success && result.data?.instrumentResponse?.redirectInfo?.url) {
+      console.log(`[PhonePe] 4. Success! Redirecting user to: ${result.data.instrumentResponse.redirectInfo.url}`);
+      res.json({ redirectUrl: result.data.instrumentResponse.redirectInfo.url });
     } else {
-      console.error('PhonePe error message:', data.message);
-      res.status(500).json({ error: data.message });
+      console.error('[PhonePe] 4. Failed:', JSON.stringify(result));
+      res.status(500).json({ 
+        error: result.message || 'PhonePe rejected the request',
+        code: result.code 
+      });
     }
+
   } catch (error) {
-    console.error('Payment initiation error:', error);
-    res.status(500).json({ error: error.message });
+    console.error('[PhonePe] Critical Error:', error);
+    res.status(500).json({ error: 'Internal server error during payment initiation' });
   }
 });
 
 // PhonePe Callback Handler
 app.post('/api/payment/callback', async (req, res) => {
-  const { response } = req.body;
-  const xVerify = req.headers['x-verify'];
+  try {
+    const { response } = req.body;
+    const xVerify = req.headers['x-verify'];
 
-  if (!response || !xVerify) {
-    return res.status(400).json({ error: 'Missing response or checksum' });
-  }
+    if (!response || !xVerify) {
+      return res.status(400).json({ error: 'Missing response or checksum' });
+    }
 
-  // Verify checksum
-  const checksum = crypto.createHash('sha256').update(response + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
-  if (checksum !== xVerify) {
-    return res.status(401).json({ error: 'Invalid checksum' });
-  }
+    // Verify checksum
+    const checksum = crypto.createHash('sha256').update(response + process.env.PHONEPE_SALT_KEY).digest('hex') + '###' + process.env.PHONEPE_SALT_INDEX;
+    if (checksum !== xVerify) {
+      console.error('Invalid callback checksum');
+      return res.status(401).json({ error: 'Invalid checksum' });
+    }
 
-  const decodedResponse = JSON.parse(Buffer.from(response, 'base64').toString('utf-8'));
-  const { success, code, data } = decodedResponse;
+    const decodedResponse = JSON.parse(Buffer.from(response, 'base64').toString('utf-8'));
+    const { success, code, data } = decodedResponse;
 
-  if (success && code === 'PAYMENT_SUCCESS') {
-    const { merchantTransactionId, transactionId: providerTransactionId, amount, paymentInstrument } = data;
-    
-    // Find transaction
-    const [transaction] = await query('SELECT * FROM transactions WHERE provider_transaction_id = ?', [merchantTransactionId]);
-    if (transaction) {
-      // Update transaction
-      await query(
-        `UPDATE transactions SET status = 'success', provider_transaction_id = ?, payment_method_type = ?, payment_method_provider = ?, provider_response = ? WHERE id = ?`,
-        [providerTransactionId, paymentInstrument.type, paymentInstrument.cardType || paymentInstrument.bankId || null, JSON.stringify(decodedResponse), transaction.id]
-      );
+    if (success && code === 'PAYMENT_SUCCESS') {
+      const { merchantTransactionId, transactionId: providerTransactionId, amount, paymentInstrument } = data;
+      
+      // Find transaction by merchantTransactionId
+      const [transaction] = await query('SELECT * FROM transactions WHERE provider_transaction_id = ?', [merchantTransactionId]);
+      
+      if (transaction) {
+        if (transaction.status === 'success') {
+          return res.status(200).send('ALREADY_PROCESSED');
+        }
 
-      // Update order
-      await query(
-        `UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = NOW() WHERE id = ?`,
-        ['phonepe', transaction.order_id]
-      );
+        // Update transaction
+        await query(
+          `UPDATE transactions SET status = 'success', provider_transaction_id = ?, payment_method_type = ?, payment_method_provider = ?, provider_response = ?, updated_at = NOW() WHERE id = ?`,
+          [
+            providerTransactionId, 
+            paymentInstrument.type, 
+            paymentInstrument.cardType || paymentInstrument.bankId || paymentInstrument.utr || null, 
+            JSON.stringify(decodedResponse), 
+            transaction.id
+          ]
+        );
 
-      // Send confirmation email
-      const [order] = await query('SELECT o.*, u.email, p.first_name FROM orders o JOIN users u ON o.user_id = u.id JOIN profiles p ON o.user_id = p.user_id WHERE o.id = ?', [transaction.order_id]);
-      if (order) {
-        await sendMail(order.email, `Order Confirmation - #${order.id.slice(0, 8)}`, `<h1>Payment Successful!</h1><p>Hi ${order.first_name}, your payment for order #${order.id.slice(0, 8)} was successful. We're processing your order now.</p>`);
+        // Update order
+        await query(
+          `UPDATE orders SET payment_status = 'paid', payment_method = ?, updated_at = NOW() WHERE id = ?`,
+          ['phonepe', transaction.order_id]
+        );
+
+        // Send confirmation email
+        const [order] = await query('SELECT o.*, u.email, p.first_name FROM orders o JOIN users u ON o.user_id = u.id JOIN profiles p ON o.user_id = p.user_id WHERE o.id = ?', [transaction.order_id]);
+        if (order) {
+          await sendMail(
+            order.email, 
+            `Order Confirmation - #${order.id.slice(0, 8)}`, 
+            `<h1>Payment Successful!</h1><p>Hi ${order.first_name}, your payment for order #${order.id.slice(0, 8)} was successful. We're processing your order now.</p>`
+          );
+        }
+      }
+    } else {
+      // Handle failure
+      const { merchantTransactionId } = data || {};
+      if (merchantTransactionId) {
+        await query(`UPDATE transactions SET status = 'failed', provider_response = ?, updated_at = NOW() WHERE provider_transaction_id = ?`, [JSON.stringify(decodedResponse), merchantTransactionId]);
       }
     }
-  } else {
-    // Handle failure
-    const { merchantTransactionId } = data;
-    await query(`UPDATE transactions SET status = 'failed', provider_response = ? WHERE provider_transaction_id = ?`, [JSON.stringify(decodedResponse), merchantTransactionId]);
-  }
 
-  res.status(200).send('OK');
+    res.status(200).send('OK');
+  } catch (err) {
+    console.error('Callback processing error:', err);
+    res.status(500).send('ERROR');
+  }
 });
 
 // Handle cases where PhonePe might still try to POST to the redirectUrl
