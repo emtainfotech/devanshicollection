@@ -648,7 +648,9 @@ app.post('/api/pay', authRequired, async (req, res) => {
     
     // 7. Call PhonePe API
     // The correct production base URL is https://api.phonepe.com/apis/hermes
-    // We append /pg/v1/pay to it.
+    // However, some production setups use https://api.phonepe.com/apis/hermes/pg/v1/pay
+    // or direct v1 endpoints. 
+    
     let baseUrl = (process.env.PHONEPE_HOST || 'https://api.phonepe.com/apis/hermes').trim().replace(/\/$/, '');
     
     // Safety check: If the user provided a very short URL, they might have missed 'hermes'
@@ -656,8 +658,9 @@ app.post('/api/pay', authRequired, async (req, res) => {
       baseUrl = 'https://api.phonepe.com/apis/hermes';
     }
 
+    // Use /pg/v1/pay as the standard endpoint path
     const finalUrl = `${baseUrl}/pg/v1/pay`;
-    console.log(`[PhonePe] 3. Sending request to: ${finalUrl}`);
+    console.log(`[PhonePe] 3. Final URL: ${finalUrl}`);
     
     const response = await fetch(finalUrl, {
       method: 'POST',
