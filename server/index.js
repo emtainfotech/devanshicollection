@@ -41,13 +41,16 @@ async function getPhonePeToken() {
 
   const response = await fetch('https://api.phonepe.com/apis/identity-manager/v1/oauth/token', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
+    headers: { 
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json'
+    },
+    body: new URLSearchParams({
       client_id: clientId,
       client_secret: clientSecret,
-      client_version: 1,
+      client_version: '1',
       grant_type: 'client_credentials'
-    })
+    }).toString()
   });
 
   const data = await response.json();
