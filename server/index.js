@@ -651,11 +651,11 @@ app.post('/api/pay', authRequired, async (req, res) => {
     // However, some production setups use https://api.phonepe.com/apis/hermes/pg/v1/pay
     // or direct v1 endpoints. 
     
-    let baseUrl = (process.env.PHONEPE_HOST || 'https://api.phonepe.com/apis/hermes').trim().replace(/\/$/, '');
+    let baseUrl = (process.env.PHONEPE_HOST || 'https://api.phonepe.com/apis').trim().replace(/\/$/, '');
     
     // Safety check: If the user provided a very short URL, they might have missed 'hermes'
     if (baseUrl === 'https://api.phonepe.com/apis') {
-      baseUrl = 'https://api.phonepe.com/apis/hermes';
+      baseUrl = 'https://api.phonepe.com/apis';
     }
 
     // Use /pg/v1/pay as the standard endpoint path
