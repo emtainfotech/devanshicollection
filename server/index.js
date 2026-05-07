@@ -682,8 +682,8 @@ app.post('/api/pay', authRequired, async (req, res) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-        'X-MERCHANT-ID': process.env.PHONEPE_MERCHANT_ID, // Added header as required by some V2 versions
+        'Authorization': `O-Bearer ${accessToken}`, // Changed from Bearer to O-Bearer for V2
+        'X-MERCHANT-ID': process.env.PHONEPE_MERCHANT_ID,
         'Accept': 'application/json'
       },
       body: JSON.stringify(payload)
