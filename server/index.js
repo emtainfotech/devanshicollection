@@ -662,6 +662,7 @@ app.post('/api/pay', authRequired, async (req, res) => {
     // 5. Prepare PhonePe V2 Payload
     const amountInPaise = Math.round(parseFloat(order.total_amount) * 100);
     const payload = {
+      merchantId: process.env.PHONEPE_MERCHANT_ID, // Explicitly included for V2 Auth
       merchantOrderId: merchantOrderId,
       amount: amountInPaise,
       expireAfter: 1200, // 20 minutes
