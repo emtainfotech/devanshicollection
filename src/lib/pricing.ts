@@ -6,9 +6,10 @@ export const GST_RATE = 0.18;
 export let SHIPPING_FLAT_INR = 100;
 export let SHIPPING_FREE_THRESHOLD_INR = 4999;
 
-export const setShippingRules = (flat: number, threshold: number) => {
-  SHIPPING_FLAT_INR = flat;
-  SHIPPING_FREE_THRESHOLD_INR = threshold;
+// This will be updated by the Layout component when site settings are fetched
+export const updateShippingRules = (flat: number, threshold: number) => {
+  SHIPPING_FLAT_INR = Number(flat || 100);
+  SHIPPING_FREE_THRESHOLD_INR = Number(threshold || 4999);
 };
 
 export const toINRValue = (value: number) => value * USD_TO_INR;

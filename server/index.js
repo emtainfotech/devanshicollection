@@ -396,6 +396,12 @@ app.post('/api/orders', authRequired, async (req, res) => {
   const { items, shipping_address, totals, coupon_code } = body;
   if (!items?.length) return res.status(400).json({ error: 'No items' });
 
+  // Fetch dynamic shipping rules to validate/calculate totals
+  const settingsRows = await query('SELECT free_shipping_threshold, flat_shipping_rate FROM site_settings LIMIT 1');
+  const settings = settingsRows?.[0] || { free_shipping_threshold: 4999, flat_shipping_rate: 100 };
+  const FREE_THRESHOLD = Number(settings.free_shipping_threshold);
+  const FLAT_RATE = Number(settings.flat_shipping_rate);
+
   let discount_amount = 0;
   if (coupon_code) {
     const couponRows = await query('SELECT * FROM coupons WHERE code = ? AND is_active = 1 AND (expires_at IS NULL OR expires_at > NOW()) LIMIT 1', [String(coupon_code).toUpperCase()]);

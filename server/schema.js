@@ -73,6 +73,12 @@ export async function ensureSchema() {
     CREATE TABLE IF NOT EXISTS site_settings (
       id CHAR(36) PRIMARY KEY,
       announcement_text TEXT,
+      free_shipping_threshold DECIMAL(10,2) DEFAULT 4999,
+      flat_shipping_rate DECIMAL(10,2) DEFAULT 100,
+      instagram_url TEXT,
+      facebook_url TEXT,
+      twitter_url TEXT,
+      youtube_url TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     )
