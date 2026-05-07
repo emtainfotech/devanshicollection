@@ -662,7 +662,6 @@ app.post('/api/pay', authRequired, async (req, res) => {
     // 5. Prepare PhonePe V2 Payload
     const amountInPaise = Math.round(parseFloat(order.total_amount) * 100);
     const payload = {
-      merchantId: process.env.PHONEPE_MERCHANT_ID, // Explicitly included for V2 Auth
       merchantOrderId: merchantOrderId,
       amount: amountInPaise,
       expireAfter: 1200, // 20 minutes
@@ -676,6 +675,7 @@ app.post('/api/pay', authRequired, async (req, res) => {
     };
 
     console.log(`[PhonePe V2] 3. Sending request to: https://api.phonepe.com/apis/pg/checkout/v2/pay`);
+    console.log(`[PhonePe V2] Merchant ID: ${process.env.PHONEPE_MERCHANT_ID}`);
     
     // 6. Call PhonePe V2 API
     const response = await fetch('https://api.phonepe.com/apis/pg/checkout/v2/pay', {
@@ -683,6 +683,7 @@ app.post('/api/pay', authRequired, async (req, res) => {
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`,
+        'X-MERCHANT-ID': process.env.PHONEPE_MERCHANT_ID, // Added header as required by some V2 versions
         'Accept': 'application/json'
       },
       body: JSON.stringify(payload)
