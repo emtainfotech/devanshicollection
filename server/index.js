@@ -639,13 +639,6 @@ app.post('/api/pay', authRequired, async (req, res) => {
 
     // 6. Generate Checksum
     const base64Payload = Buffer.from(JSON.stringify(payload)).toString('base64');
-    // The correct formula: SHA256(Base64Payload + "/pg/v1/pay" + SaltKey) + "###" + SaltIndex
-    const stringToHash = base64Payload + '/pg/v1/pay' + process.env.PHONEPE_SALT_KEY;
-    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
-    const checksum = `${sha256}###${process.env.PHONEPE_SALT_INDEX}`;
-
-    console.log(`[PhonePe] 3. Sending request to: ${process.env.PHONEPE_HOST}/pg/v1/pay`);
-    console.log(`[PhonePe] X-VERIFY: ${checksum}`);
     
     // 7. Call PhonePe API
     // FORCE the correct production URL structure for hermes
@@ -653,7 +646,7 @@ app.post('/api/pay', authRequired, async (req, res) => {
     
     // If the host is the standard PhonePe API but missing 'hermes', we MUST add it.
     if (baseUrl.includes('api.phonepe.com')) {
-      if (!baseUrl.includes('/hermes')) {
+      if (!baseUrl.includes('/hermes') && !baseUrl.includes('/pg-sandbox')) {
         if (baseUrl.endsWith('/apis')) {
           baseUrl = baseUrl + '/hermes';
         } else if (baseUrl.endsWith('.com')) {
@@ -663,7 +656,18 @@ app.post('/api/pay', authRequired, async (req, res) => {
     }
 
     const finalUrl = `${baseUrl}/pg/v1/pay`;
-    console.log(`[PhonePe] 3. Final URL: ${finalUrl}`);
+    const urlObj = new URL(finalUrl);
+    const endpointPath = urlObj.pathname; // This will be /apis/hermes/pg/v1/pay or similar
+
+    // The correct formula: SHA256(Base64Payload + endpointPath + SaltKey) + "###" + SaltIndex
+    // For PhonePe, the endpoint path in the checksum MUST match the path in the URL.
+    const stringToHash = base64Payload + endpointPath + process.env.PHONEPE_SALT_KEY;
+    const sha256 = crypto.createHash('sha256').update(stringToHash).digest('hex');
+    const checksum = `${sha256}###${process.env.PHONEPE_SALT_INDEX}`;
+
+    console.log(`[PhonePe] 3. Sending request to: ${finalUrl}`);
+    console.log(`[PhonePe] Endpoint for Hash: ${endpointPath}`);
+    console.log(`[PhonePe] X-VERIFY: ${checksum}`);
     
     const response = await fetch(finalUrl, {
       method: 'POST',
@@ -683,8 +687,13 @@ app.post('/api/pay', authRequired, async (req, res) => {
       res.json({ redirectUrl: result.data.instrumentResponse.redirectInfo.url });
     } else {
       console.error('[PhonePe] 4. Failed:', JSON.stringify(result));
+      // If PhonePe returns 404, it might mean the merchantId is not configured for this environment.
+      let errorMessage = result.message || 'PhonePe rejected the request';
+      if (result.code === '404') {
+        errorMessage = 'Payment Gateway Error: Merchant account not found or not activated for production. Please contact support.';
+      }
       res.status(500).json({ 
-        error: result.message || 'PhonePe rejected the request',
+        error: errorMessage,
         code: result.code 
       });
     }
